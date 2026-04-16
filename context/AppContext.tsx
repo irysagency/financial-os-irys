@@ -38,34 +38,38 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const loadData = async () => {
     setIsLoading(true);
-    const u = await mockDb.getUser();
-    setUser(u);
+    try {
+      const u = await mockDb.getUser();
+      setUser(u);
 
-    const dashboard = await mockDb.getDashboardData();
-    // @ts-ignore
-    setKpis(dashboard.kpis);
-    // @ts-ignore
-    setCashFlow(dashboard.cashFlow);
-    // @ts-ignore
-    setSubscriptions(dashboard.subscriptions);
-    // @ts-ignore
-    setRecentTransactions(dashboard.recentTransactions);
-    // @ts-ignore
-    setExpenseDistribution(dashboard.expenseDistribution);
+      // Fetch real data from our new API route
+      const response = await fetch('/api/get-dashboard-data');
+      if (response.ok) {
+        const dashboard = await response.json();
+        setKpis(dashboard.kpis || []);
+        setRecentTransactions(dashboard.recentTransactions || []);
+        setExpenseDistribution(dashboard.expenseDistribution || []);
+        // Note: other fields like cashFlow could be computed or kept as mock for now
+      } else {
+        console.error('Failed to fetch real dashboard data, falling back to mock');
+        const dashboard = await mockDb.getDashboardData();
+        setKpis(dashboard.kpis);
+        setRecentTransactions(dashboard.recentTransactions);
+        setExpenseDistribution(dashboard.expenseDistribution);
+      }
 
-    const analytics = await mockDb.getAnalyticsData();
-    // @ts-ignore
-    setAnalyticsData(analytics.chart);
+      const analytics = await mockDb.getAnalyticsData();
+      setAnalyticsData(analytics.chart);
 
-    const projectsData = await mockDb.getProjectsData();
-    // @ts-ignore
-    setProjects(projectsData.projects);
-    // @ts-ignore
-    setClients(projectsData.clients);
-    // @ts-ignore
-    setCurrentOrg(projectsData.org);
-
-    setIsLoading(false);
+      const projectsData = await mockDb.getProjectsData();
+      setProjects(projectsData.projects);
+      setClients(projectsData.clients);
+      setCurrentOrg(projectsData.org);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {

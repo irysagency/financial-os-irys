@@ -33,7 +33,7 @@ const CHART_DATA_2026 = [
 ];
 
 export const Dashboard: React.FC = () => {
-  const { kpis, recentTransactions, expenseDistribution, isLoading } = useApp();
+  const { kpis, recentTransactions, expenseDistribution, isLoading, refreshData } = useApp();
 
   const [showCA,       setShowCA]       = useState(true);
   const [showCharges,  setShowCharges]  = useState(true);
@@ -50,7 +50,8 @@ export const Dashboard: React.FC = () => {
       
       if (response.ok) {
         setSyncMessage({ text: `Synchronisation réussie (${data.count} transactions)`, type: 'success' });
-        // Optional: refresh data here if you have a refresh function
+        // Refresh the global state with new data from Supabase
+        refreshData();
       } else {
         setSyncMessage({ text: `Erreur: ${data.error}`, type: 'error' });
       }
