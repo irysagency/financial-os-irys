@@ -30,7 +30,7 @@ const CATEGORY_MAP: Record<string, string> = {
   'linkedin': 'Marketing',
   'metricool': 'Marketing',
   'ads': 'Marketing',
-  'qonto': 'Opérations',
+  'qonto': 'Frais',
   'stripe': 'Opérations',
   'commission': 'Frais',
   'frais': 'Frais',
@@ -140,30 +140,35 @@ export default async function handler(req: any, res: any) {
       color: CATEGORY_COLORS[name] || CATEGORY_COLORS['Autres']
     })).sort((a, b) => b.value - a.value);
 
-    // 5. Subscription Detection (Improved)
-    // We group by label and see if it repeat at least twice in different months
-    const labelCounts: Record<string, { count: number, amounts: number[], lastDate: string }> = {};
+    // 5. Subscription Detection (Improved with strict Whitelist)
+    const SUBSCRIPTION_WHITELIST = ['Notion', 'Metricool', 'Squarespace', 'Claude'];
+    
+    const labelCounts: Record<string, { count: number, amounts: number[], lastDate: string, officialName: string }> = {};
     (transactions || []).forEach(tx => {
       if (tx.side === 'debit') {
-        const entry = labelCounts[tx.label] || { count: 0, amounts: [], lastDate: '' };
-        entry.count++;
-        entry.amounts.push(tx.amount);
-        entry.lastDate = tx.settled_at;
-        labelCounts[tx.label] = entry;
+        const label = tx.label || '';
+        const matchedProvider = SUBSCRIPTION_WHITELIST.find(p => label.toLowerCase().includes(p.toLowerCase()));
+        
+        if (matchedProvider) {
+          const entry = labelCounts[matchedProvider] || { count: 0, amounts: [], lastDate: '', officialName: matchedProvider };
+          entry.count++;
+          entry.amounts.push(tx.amount);
+          entry.lastDate = tx.settled_at;
+          labelCounts[matchedProvider] = entry;
+        }
       }
     });
 
-    const subscriptions = Object.entries(labelCounts)
-      .filter(([label, data]) => data.count >= 2)
-      .map(([label, data]) => ({
-        id: label,
-        nom: label,
+    const subscriptions = Object.values(labelCounts)
+      .map((data) => ({
+        id: data.officialName,
+        nom: data.officialName,
         montantHT: data.amounts[0],
         frequence: 'Mensuel',
         statut: 'Actif',
-        prochaineDate: data.lastDate // Estimate
+        prochaineDate: data.lastDate
       }))
-      .slice(0, 4);
+      .sort((a, b) => b.montantHT - a.montantHT);
 
     return res.status(200).json({
       kpis,
