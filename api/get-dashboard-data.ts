@@ -141,7 +141,7 @@ export default async function handler(req: any, res: any) {
     })).sort((a, b) => b.value - a.value);
 
     // 5. Subscription Detection (Improved with strict Whitelist)
-    const SUBSCRIPTION_WHITELIST = ['Notion', 'Metricool', 'Squarespace', 'Claude'];
+    const SUBSCRIPTION_WHITELIST = ['Notion', 'Metricool', 'Squarespace', 'Claude', 'Anthropic', 'Google', 'Adobe', 'Figma', 'Slack', 'ChatGPT', 'Stripe'];
     
     const labelCounts: Record<string, { count: number, amounts: number[], lastDate: string, officialName: string }> = {};
     (transactions || []).forEach(tx => {
