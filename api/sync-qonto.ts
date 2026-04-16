@@ -1,44 +1,43 @@
-import { supabase } from '../services/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// INLINED Supabase Client initialization to avoid path/import issues in Vercel Functions
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req: any, res: any) {
-  // Config
+  // 1. Check Env Vars
   const QONTO_SLUG = process.env.QONTO_SLUG;
   const QONTO_SECRET = process.env.QONTO_SECRET;
   const QONTO_IBAN = process.env.QONTO_IBAN;
 
   if (!QONTO_SLUG || !QONTO_SECRET || !QONTO_IBAN) {
-    return res.status(500).json({ 
-      error: 'Variables d\'environnement Qonto manquantes (SLUG, SECRET ou IBAN)' 
-    });
+    return res.status(500).json({ error: 'Missing Qonto logs' });
   }
 
   try {
-    // 1. Récupération des transactions depuis Qonto
-    const qontoResponse = await fetch(`https://thirdparty.qonto.com/v2/transactions?iban=${QONTO_IBAN}`, {
+    // 2. Qonto Fetch
+    const qontoRes = await fetch(`https://thirdparty.qonto.com/v2/transactions?iban=${QONTO_IBAN}`, {
       headers: {
         'Authorization': `${QONTO_SLUG}:${QONTO_SECRET}`,
         'Accept': 'application/json',
       },
     });
 
-    if (!qontoResponse.ok) {
-      const errorData = await qontoResponse.json().catch(() => ({}));
-      return res.status(qontoResponse.status).json({ 
-        error: 'Erreur API Qonto', 
-        details: errorData 
-      });
+    if (!qontoRes.ok) {
+      const err = await qontoRes.json().catch(() => ({}));
+      return res.status(qontoRes.status).json({ error: 'Qonto API error', details: err });
     }
 
-    const data = await qontoResponse.json();
-    const qontoTransactions = data.transactions || [];
+    const data = await qontoRes.json();
+    const transactions = data.transactions || [];
 
-    if (qontoTransactions.length === 0) {
+    if (transactions.length === 0) {
       return res.status(200).json({ success: true, count: 0 });
     }
 
-    // 2. Transformation des données pour Supabase
-    // Colonnes : qonto_transaction_id, amount, label, side, settled_at
-    const transactionsToUpsert = qontoTransactions.map((tx: any) => ({
+    // 3. Supabase Upsert
+    const toUpsert = transactions.map((tx: any) => ({
       qonto_transaction_id: tx.id,
       amount: tx.amount,
       label: tx.label,
@@ -46,26 +45,17 @@ export default async function handler(req: any, res: any) {
       settled_at: tx.settled_at,
     }));
 
-    // 3. Upsert dans Supabase (évite les doublons via qonto_transaction_id)
-    const { error: supabaseError } = await supabase
+    const { error } = await supabase
       .from('transactions')
-      .upsert(transactionsToUpsert, { onConflict: 'qonto_transaction_id' });
+      .upsert(toUpsert, { onConflict: 'qonto_transaction_id' });
 
-    if (supabaseError) {
-      console.error('Supabase Error:', supabaseError);
-      return res.status(500).json({ 
-        error: 'Erreur Supabase lors de l\'insertion', 
-        details: supabaseError 
-      });
+    if (error) {
+      return res.status(500).json({ error: 'Supabase error', details: error });
     }
 
-    return res.status(200).json({ success: true, count: transactionsToUpsert.length });
+    return res.status(200).json({ success: true, count: toUpsert.length });
 
-  } catch (error: any) {
-    console.error('Sync Error:', error);
-    return res.status(500).json({ 
-      error: 'Erreur interne du serveur', 
-      message: error.message 
-    });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Server error', message: err.message });
   }
 }
