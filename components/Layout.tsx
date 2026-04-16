@@ -1,18 +1,21 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { 
-  LayoutDashboard, 
-  Wallet, 
-  ArrowLeftRight, 
-  History, 
-  CreditCard, 
-  RefreshCcw, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Wallet,
+  ArrowLeftRight,
+  History,
+  CreditCard,
+  RefreshCcw,
+  Settings,
   LifeBuoy,
   Search,
   Bell,
   Menu,
-  ChevronRight
+  ChevronRight,
+  TrendingUp,
+  BarChart2,
+  Repeat,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -65,9 +68,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
         <div className="p-8 pb-8">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#FF4D00] rounded-xl flex items-center justify-center text-black font-bold text-xl shadow-[0_0_20px_rgba(255,77,0,0.3)]">
-              E
+              I
             </div>
-            <span className="text-2xl font-bold tracking-tight">Equota</span>
+            <span className="text-2xl font-bold tracking-tight">Irys</span>
           </div>
         </div>
 
@@ -89,8 +92,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
           <NavItem page="dashboard" icon={LayoutDashboard} label="Dashboard" />
           <NavItem page="wallet" icon={Wallet} label="My Wallet" />
           <NavItem page="transfer" icon={ArrowLeftRight} label="Transfer" />
-          <NavItem page="transactions" icon={History} label="Transactions" />
-          <NavItem page="payments" icon={CreditCard} label="Payments" />
+          <NavItem page="transactions"  icon={History}      label="Transactions"  />
+          <NavItem page="revenus"       icon={TrendingUp}   label="Revenus"       />
+          <NavItem page="pnl"           icon={BarChart2}    label="P&L"           />
+          <NavItem page="abonnements"   icon={Repeat}       label="Abonnements"   />
+          <NavItem page="payments"      icon={CreditCard}   label="Payments"      />
           <NavItem page="exchange" icon={RefreshCcw} label="Exchange" />
 
           <div className="text-xs font-semibold text-muted px-4 mt-8 mb-2 uppercase tracking-wider">Preferences</div>

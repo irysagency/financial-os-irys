@@ -2,8 +2,14 @@ import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
-import { Analytics } from './pages/Analytics'; // Replaces old Projects view
+import { Analytics } from './pages/Analytics';
 import { Transactions } from './pages/Transactions';
+import { Transfer } from './pages/Transfer';
+import { Payments } from './pages/Payments';
+import { Settings } from './pages/Settings';
+import { Revenus } from './pages/Revenus';
+import { PnL } from './pages/PnL';
+import { Abonnements } from './pages/Abonnements';
 import { NewSubscriptionModal } from './components/NewSubscriptionModal';
 
 const AppContent = () => {
@@ -13,29 +19,30 @@ const AppContent = () => {
 
   const renderPage = () => {
     switch (activePage) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'wallet': // Mapping "My Wallet" to Analytics View as per visual flow
-        return <Analytics />;
-      case 'transactions':
-        return <Transactions />;
-      default:
-        return <Dashboard />;
+      case 'dashboard':    return <Dashboard />;
+      case 'wallet':       return <Analytics />;
+      case 'transactions': return <Transactions />;
+      case 'transfer':     return <Transfer />;
+      case 'payments':     return <Payments onNavigate={setActivePage} />;
+      case 'settings':     return <Settings />;
+      case 'revenus':      return <Revenus />;
+      case 'pnl':          return <PnL />;
+      case 'abonnements':  return <Abonnements />;
+      default:             return <Dashboard />;
     }
   };
 
   return (
     <>
-      <Layout 
-        activePage={activePage} 
+      <Layout
+        activePage={activePage}
         onNavigate={setActivePage}
         onOpenModal={() => setIsModalOpen(true)}
       >
         {renderPage()}
       </Layout>
-      
-      <NewSubscriptionModal 
-        isOpen={isModalOpen} 
+      <NewSubscriptionModal
+        isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={addSubscription}
       />

@@ -66,3 +66,60 @@ export interface Organization {
   name: string;
   currency: string;
 }
+
+// ------------------------------------------------------------------
+// NOUVEAUX TYPES — Financial OS Irys
+// ------------------------------------------------------------------
+
+export type PrestationStatus = 'Brouillon' | 'Signé' | 'En attente' | 'Payé' | 'Impayé';
+
+export interface Prestation {
+  id: string;
+  client: string;
+  description: string;
+  montantHT: number;
+  tva: number;
+  montantTTC: number;
+  dateEmission: string;  // ISO YYYY-MM-DD
+  dateEcheance: string;  // ISO YYYY-MM-DD
+  statut: PrestationStatus;
+  source: 'qonto' | 'manual';
+}
+
+export interface PnlMonthData {
+  mois: string;            // YYYY-MM
+  label: string;           // ex: "Mar 26"
+  caHT: number;
+  chOpsHT: number;         // Dépenses opérationnelles
+  chTechHT: number;        // Dépenses technologies
+  chPersHT: number;        // Frais de personnel
+  chMktHT: number;         // Marketing
+  fraisBanc: number;       // Frais bancaires
+  totalChargesHT: number;  // chOps + chTech + chPers + chMkt
+  margeHT: number;         // caHT - chOpsHT (marge brute)
+  resultatNet: number;     // caHT - totalChargesHT - fraisBanc
+  tvaCollectee: number;
+  tvaDeductible: number;
+  tvaNette: number;
+}
+
+export type AbonnementFrequence = 'Mensuel' | 'Annuel';
+export type AbonnementStatut = 'Actif' | 'Pausé' | 'Annulé';
+
+export interface AbonnementItem {
+  id: string;
+  nom: string;
+  categorie: string;
+  montantHT: number;
+  frequence: AbonnementFrequence;
+  prochaineDate: string;  // ISO YYYY-MM-DD
+  statut: AbonnementStatut;
+}
+
+export interface VirementHistorique {
+  id: string;
+  beneficiaire: string;
+  montant: number;    // négatif
+  date: string;       // ISO YYYY-MM-DD
+  reference: string;
+}
