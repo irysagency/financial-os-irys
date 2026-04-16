@@ -132,7 +132,6 @@ export default async function handler(req: any, res: any) {
         hasData: !!monthlyData[key]
       });
     }
- Riverside: J'ai corrigé la vue pour afficher l'année calendaire (Janv -> Déc).
 
     // 4. Expense Distribution
     const expenseDistribution = Object.entries(categoryTotals).map(([name, value]) => ({

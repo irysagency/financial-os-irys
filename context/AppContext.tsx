@@ -55,6 +55,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         console.error('Failed to fetch real dashboard data, falling back to mock');
         const dashboard = await mockDb.getDashboardData();
         setKpis(dashboard.kpis);
+        setCashFlow(dashboard.cashFlow);
+        setSubscriptions(dashboard.subscriptions);
         setRecentTransactions(dashboard.recentTransactions);
         setExpenseDistribution(dashboard.expenseDistribution);
       }
