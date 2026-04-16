@@ -5,8 +5,6 @@ import {
   Wallet,
   ArrowLeftRight,
   History,
-  CreditCard,
-  RefreshCcw,
   Settings,
   LifeBuoy,
   Search,
@@ -89,15 +87,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
         {/* MAIN MENU */}
         <div className="flex-1 px-4 space-y-1 overflow-y-auto">
           <div className="text-xs font-semibold text-muted px-4 mb-2 uppercase tracking-wider">Main Menu</div>
-          <NavItem page="dashboard" icon={LayoutDashboard} label="Dashboard" />
-          <NavItem page="wallet" icon={Wallet} label="My Wallet" />
-          <NavItem page="transfer" icon={ArrowLeftRight} label="Transfer" />
-          <NavItem page="transactions"  icon={History}      label="Transactions"  />
-          <NavItem page="revenus"       icon={TrendingUp}   label="Revenus"       />
-          <NavItem page="pnl"           icon={BarChart2}    label="P&L"           />
-          <NavItem page="abonnements"   icon={Repeat}       label="Abonnements"   />
-          <NavItem page="payments"      icon={CreditCard}   label="Payments"      />
-          <NavItem page="exchange" icon={RefreshCcw} label="Exchange" />
+          <NavItem page="dashboard"    icon={LayoutDashboard} label="Dashboard"    />
+          <NavItem page="wallet"       icon={Wallet}          label="My Wallet"    />
+          <NavItem page="transactions" icon={History}         label="Transactions" />
+          <NavItem page="revenus"      icon={TrendingUp}      label="Revenus"      />
+          <NavItem page="pnl"          icon={BarChart2}       label="P&L"          />
+          <NavItem page="abonnements"  icon={Repeat}          label="Abonnements"  />
 
           <div className="text-xs font-semibold text-muted px-4 mt-8 mb-2 uppercase tracking-wider">Preferences</div>
           <NavItem page="settings" icon={Settings} label="Settings" />
