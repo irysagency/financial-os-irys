@@ -118,11 +118,11 @@ export default async function handler(req: any, res: any) {
       { title: 'Résultat Net', amount: metrics.current.revenue - metrics.current.expenses, trend: calcTrend(metrics.current.revenue - metrics.current.expenses, metrics.previous.revenue - metrics.previous.expenses) }
     ];
 
-    // 3. Chart Data (Last 12 months)
+    // 3. Chart Data (January to December of Current Year)
     const chartData = [];
     for (let i = 0; i < 12; i++) {
-      const d = new Date(currentYear, currentMonth - (11 - i), 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const d = new Date(currentYear, i, 1);
+      const key = `${currentYear}-${String(i + 1).padStart(2, '0')}`;
       const data = monthlyData[key] || { ca: 0, charges: 0, resultat: 0 };
       chartData.push({
         name: d.toLocaleDateString('fr-FR', { month: 'short' }),
@@ -132,6 +132,7 @@ export default async function handler(req: any, res: any) {
         hasData: !!monthlyData[key]
       });
     }
+ Riverside: J'ai corrigé la vue pour afficher l'année calendaire (Janv -> Déc).
 
     // 4. Expense Distribution
     const expenseDistribution = Object.entries(categoryTotals).map(([name, value]) => ({

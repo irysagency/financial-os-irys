@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MoreHorizontal, RefreshCw } from 'lucide-react';
 import {
-import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from 'recharts';
@@ -121,7 +120,7 @@ export const Dashboard: React.FC = () => {
         <div className="lg:col-span-2 bg-card border border-[#2A2A2A] p-6 rounded-3xl">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h3 className="text-muted text-sm font-medium mb-1">Cash Flow Dynamics</h3>
+              <h3 className="text-muted text-sm font-medium mb-1">Cash Flow 2026</h3>
               <div className="text-2xl font-bold">{fmtEur(kpis[0]?.amount ?? 0)}</div>
             </div>
             {/* Series toggles */}
