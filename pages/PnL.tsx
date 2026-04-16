@@ -51,6 +51,63 @@ const TABLE_ROWS: Array<{
   { key: 'tvaNette',       label: 'TVA nette à payer',           bold: true, colored: true },
 ];
 
+const IS_RATE  = 0.15;
+const PFU_RATE = 0.30;
+
+const BeneficeNet: React.FC = () => {
+  const completeMois = MONTHLY_PNL.filter(m => m.mois >= '2026-01' && m.mois <= '2026-03');
+  const avgNet = completeMois.reduce((s, m) => s + m.resultatNet, 0) / completeMois.length;
+  const apresIS         = avgNet * (1 - IS_RATE);
+  const apresDividendes = apresIS * (1 - PFU_RATE);
+
+  const Row = ({ label, value, color }: { label: string; value: number; color: string }) => {
+    const pct = avgNet > 0 ? Math.min(100, Math.round((value / avgNet) * 100)) : 0;
+    return (
+      <div>
+        <div className="flex justify-between text-sm mb-1.5">
+          <span className="text-muted">{label}</span>
+          <span className="font-bold" style={{ color }}>{fmt(value)}</span>
+        </div>
+        <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: color }} />
+        </div>
+        <div className="text-right text-[10px] text-muted mt-0.5">{pct}%</div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-card border border-[#2A2A2A] p-6 rounded-3xl">
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h2 className="font-bold">Bénéfice net estimé</h2>
+          <p className="text-xs text-muted mt-0.5">Basé sur le résultat net moyen Jan – Mar 2026</p>
+        </div>
+        <div className="text-right">
+          <div className="text-xs text-muted mb-1">Revenu net / mois</div>
+          <div className="text-2xl font-bold text-[#4CAF50]">{fmt(apresDividendes)}</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-4">
+          <Row label="Résultat net moyen" value={avgNet}         color="#FF4D00" />
+        </div>
+        <div className="space-y-4">
+          <Row label="Après IS −15% (taux réduit PME)" value={apresIS}         color="#FFAA00" />
+        </div>
+        <div className="space-y-4">
+          <Row label="Après PFU dividendes −30%"        value={apresDividendes} color="#4CAF50" />
+        </div>
+      </div>
+      <div className="mt-4 pt-4 border-t border-[#2A2A2A] grid grid-cols-3 gap-4 text-center text-xs text-muted">
+        <div>Résultat brut moyen</div>
+        <div>IS 15% = −{fmt(avgNet * IS_RATE)}</div>
+        <div>PFU 30% = −{fmt(apresIS * PFU_RATE)}</div>
+      </div>
+    </div>
+  );
+};
+
 export const PnL: React.FC = () => {
   const [objectifs, setObjectifs] = useState<Objectifs>(() => {
     const s = localStorage.getItem('irys_objectifs');
@@ -372,6 +429,9 @@ export const PnL: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* SECTION 4 — BÉNÉFICE NET */}
+      <BeneficeNet />
     </div>
   );
 };
