@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, RefreshCw } from 'lucide-react';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Cell,
@@ -38,6 +38,29 @@ export const Dashboard: React.FC = () => {
   const [showCA,       setShowCA]       = useState(true);
   const [showCharges,  setShowCharges]  = useState(true);
   const [showResultat, setShowResultat] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    setSyncMessage(null);
+    try {
+      const response = await fetch('/api/sync-qonto');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSyncMessage({ text: `Synchronisation réussie (${data.count} transactions)`, type: 'success' });
+        // Optional: refresh data here if you have a refresh function
+      } else {
+        setSyncMessage({ text: `Erreur: ${data.error}`, type: 'error' });
+      }
+    } catch (error) {
+      setSyncMessage({ text: 'Erreur de connexion à l\'API', type: 'error' });
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncMessage(null), 5000);
+    }
+  };
 
   const subscriptions = ABONNEMENTS_INITIALS.filter(a =>
     a.statut === 'Actif' &&
@@ -63,6 +86,25 @@ export const Dashboard: React.FC = () => {
             <span className="w-4 h-3 bg-[#FF4D00] rounded-sm"></span>
             Irys Agency · Qonto
           </div>
+          <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              isSyncing 
+                ? 'bg-[#1A1A1A] text-muted cursor-not-allowed' 
+                : 'bg-[#FF4D00] text-white hover:bg-[#FF4D00]/80 active:scale-95'
+            }`}
+          >
+            <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+            {isSyncing ? 'Synchronisation...' : 'Synchroniser mes finances'}
+          </button>
+          {syncMessage && (
+            <div className={`text-xs px-3 py-1.5 rounded-lg animate-in slide-in-from-left-2 duration-300 ${
+              syncMessage.type === 'success' ? 'bg-[#4CAF50]/10 text-[#4CAF50]' : 'bg-[#FF4D00]/10 text-[#FF4D00]'
+            }`}>
+              {syncMessage.text}
+            </div>
+          )}
         </div>
       </div>
 
