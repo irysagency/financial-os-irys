@@ -47,9 +47,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (response.ok) {
         const dashboard = await response.json();
         setKpis(dashboard.kpis || []);
+        setCashFlow(dashboard.chartData || []);
+        setSubscriptions(dashboard.subscriptions || []);
         setRecentTransactions(dashboard.recentTransactions || []);
         setExpenseDistribution(dashboard.expenseDistribution || []);
-        // Note: other fields like cashFlow could be computed or kept as mock for now
       } else {
         console.error('Failed to fetch real dashboard data, falling back to mock');
         const dashboard = await mockDb.getDashboardData();

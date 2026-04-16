@@ -5,8 +5,6 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts';
-import { ABONNEMENTS_INITIALS, MONTHLY_PNL } from '../constants/data';
-
 const fmtEur = (n: number) =>
   new Intl.NumberFormat('fr-FR', {
     style: 'currency',
@@ -14,26 +12,8 @@ const fmtEur = (n: number) =>
     minimumFractionDigits: 2,
   }).format(n);
 
-const SUBSCRIPTIONS_WHITELIST = ['Notion', 'Squarespace', 'Claude', 'Metricool'];
-
-// Données annuelles 2026 : réel pour les mois disponibles, 0 pour les autres
-const CHART_DATA_2026 = [
-  { name: 'Jan', ...(() => { const m = MONTHLY_PNL.find(x => x.mois === '2026-01'); return { ca: m?.caHT ?? 0, charges: m?.totalChargesHT ?? 0, resultat: m?.resultatNet ?? 0, hasData: !!m }; })() },
-  { name: 'Fév', ...(() => { const m = MONTHLY_PNL.find(x => x.mois === '2026-02'); return { ca: m?.caHT ?? 0, charges: m?.totalChargesHT ?? 0, resultat: m?.resultatNet ?? 0, hasData: !!m }; })() },
-  { name: 'Mar', ...(() => { const m = MONTHLY_PNL.find(x => x.mois === '2026-03'); return { ca: m?.caHT ?? 0, charges: m?.totalChargesHT ?? 0, resultat: m?.resultatNet ?? 0, hasData: !!m }; })() },
-  { name: 'Avr', ...(() => { const m = MONTHLY_PNL.find(x => x.mois === '2026-04'); return { ca: m?.caHT ?? 0, charges: m?.totalChargesHT ?? 0, resultat: m?.resultatNet ?? 0, hasData: !!m }; })() },
-  { name: 'Mai',  ca: 0, charges: 0, resultat: 0, hasData: false },
-  { name: 'Juin', ca: 0, charges: 0, resultat: 0, hasData: false },
-  { name: 'Juil', ca: 0, charges: 0, resultat: 0, hasData: false },
-  { name: 'Août', ca: 0, charges: 0, resultat: 0, hasData: false },
-  { name: 'Sep',  ca: 0, charges: 0, resultat: 0, hasData: false },
-  { name: 'Oct',  ca: 0, charges: 0, resultat: 0, hasData: false },
-  { name: 'Nov',  ca: 0, charges: 0, resultat: 0, hasData: false },
-  { name: 'Déc',  ca: 0, charges: 0, resultat: 0, hasData: false },
-];
-
 export const Dashboard: React.FC = () => {
-  const { kpis, recentTransactions, expenseDistribution, isLoading, refreshData } = useApp();
+  const { kpis, recentTransactions, expenseDistribution, cashFlow, subscriptions, isLoading, refreshData } = useApp();
 
   const [showCA,       setShowCA]       = useState(true);
   const [showCharges,  setShowCharges]  = useState(true);
@@ -62,11 +42,6 @@ export const Dashboard: React.FC = () => {
       setTimeout(() => setSyncMessage(null), 5000);
     }
   };
-
-  const subscriptions = ABONNEMENTS_INITIALS.filter(a =>
-    a.statut === 'Actif' &&
-    SUBSCRIPTIONS_WHITELIST.some(w => a.nom.toLowerCase().includes(w.toLowerCase()))
-  ).sort((a, b) => a.prochaineDate.localeCompare(b.prochaineDate));
 
   const monthlyCost = subscriptions
     .filter(a => a.frequence === 'Mensuel')
@@ -173,7 +148,7 @@ export const Dashboard: React.FC = () => {
 
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={CHART_DATA_2026} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+              <ComposedChart data={cashFlow} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1A1A1A" />
                 <XAxis
                   dataKey="name"
@@ -203,7 +178,7 @@ export const Dashboard: React.FC = () => {
                 />
                 {showCA && (
                   <Bar dataKey="ca" radius={[6, 6, 0, 0]} maxBarSize={28}>
-                    {CHART_DATA_2026.map((entry, i) => (
+                    {cashFlow.map((entry: any, i: number) => (
                       <Cell
                         key={`ca-${i}`}
                         fill="#FF4D00"
@@ -214,7 +189,7 @@ export const Dashboard: React.FC = () => {
                 )}
                 {showCharges && (
                   <Bar dataKey="charges" radius={[6, 6, 0, 0]} maxBarSize={28}>
-                    {CHART_DATA_2026.map((entry, i) => (
+                    {cashFlow.map((entry: any, i: number) => (
                       <Cell
                         key={`ch-${i}`}
                         fill="#444444"
