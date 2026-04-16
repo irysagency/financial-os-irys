@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MoreHorizontal, RefreshCw } from 'lucide-react';
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, Cell,
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid,
 } from 'recharts';
+
 const fmtEur = (n: number) =>
   new Intl.NumberFormat('fr-FR', {
     style: 'currency',
@@ -17,7 +19,6 @@ export const Dashboard: React.FC = () => {
 
   const [showCA,       setShowCA]       = useState(true);
   const [showCharges,  setShowCharges]  = useState(true);
-  const [showResultat, setShowResultat] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
@@ -120,7 +121,7 @@ export const Dashboard: React.FC = () => {
         <div className="lg:col-span-2 bg-card border border-[#2A2A2A] p-6 rounded-3xl">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h3 className="text-muted text-sm font-medium mb-1">Cash Flow 2026</h3>
+              <h3 className="text-muted text-sm font-medium mb-1">Cash Flow Dynamics</h3>
               <div className="text-2xl font-bold">{fmtEur(kpis[0]?.amount ?? 0)}</div>
             </div>
             {/* Series toggles */}
@@ -137,87 +138,75 @@ export const Dashboard: React.FC = () => {
               >
                 Dépenses
               </button>
-              <button
-                onClick={() => setShowResultat(v => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${showResultat ? 'bg-[#1B5E20] text-[#4CAF50]' : 'text-muted hover:text-white'}`}
-              >
-                Résultat
-              </button>
             </div>
           </div>
 
-          <div className="h-64 w-full">
+          <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={cashFlow} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+              <AreaChart data={cashFlow} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorCa" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#FF4D00" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#FF4D00" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorCharges" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#444444" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#444444" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1A1A1A" />
                 <XAxis
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#444', fontSize: 12 }}
+                  tick={{ fill: '#666', fontSize: 12 }}
                   dy={10}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#444', fontSize: 11 }}
+                  tick={{ fill: '#666', fontSize: 11 }}
                   tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`}
                 />
                 <Tooltip
-                  cursor={{ fill: '#ffffff05' }}
+                  cursor={{ stroke: '#333', strokeWidth: 1 }}
                   contentStyle={{
                     backgroundColor: '#1A1A1A',
                     border: '1px solid #333',
-                    borderRadius: '12px',
+                    borderRadius: '16px',
                     color: '#fff',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
                   }}
+                  itemStyle={{ fontSize: '13px', padding: '2px 0' }}
+                  labelStyle={{ fontWeight: 'bold', marginBottom: '4px', color: '#FF4D00' }}
                   formatter={(value: number, name: string) => [
                     fmtEur(value),
-                    name === 'ca' ? 'Revenus HT' : name === 'charges' ? 'Dépenses HT' : 'Résultat net',
+                    name === 'ca' ? 'Revenus' : 'Dépenses',
                   ]}
                 />
                 {showCA && (
-                  <Bar dataKey="ca" radius={[6, 6, 0, 0]} maxBarSize={28}>
-                    {cashFlow.map((entry: any, i: number) => (
-                      <Cell
-                        key={`ca-${i}`}
-                        fill="#FF4D00"
-                        fillOpacity={entry.hasData ? 0.85 : 0.12}
-                      />
-                    ))}
-                  </Bar>
-                )}
-                {showCharges && (
-                  <Bar dataKey="charges" radius={[6, 6, 0, 0]} maxBarSize={28}>
-                    {cashFlow.map((entry: any, i: number) => (
-                      <Cell
-                        key={`ch-${i}`}
-                        fill="#444444"
-                        fillOpacity={entry.hasData ? 0.85 : 0.12}
-                      />
-                    ))}
-                  </Bar>
-                )}
-                {showResultat && (
-                  <Line
-                    dataKey="resultat"
-                    stroke="#4CAF50"
-                    strokeWidth={2}
-                    dot={(props: any) => {
-                      const { cx, cy, payload } = props;
-                      if (!payload.hasData) return <g key={`dot-${props.index}`} />;
-                      return (
-                        <circle
-                          key={`dot-${props.index}`}
-                          cx={cx} cy={cy} r={3}
-                          fill="#4CAF50"
-                        />
-                      );
-                    }}
-                    connectNulls={false}
+                  <Area
+                    type="monotone"
+                    dataKey="ca"
+                    stroke="#FF4D00"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#colorCa)"
+                    animationDuration={1500}
                   />
                 )}
-              </ComposedChart>
+                {showCharges && (
+                  <Area
+                    type="monotone"
+                    dataKey="charges"
+                    stroke="#444444"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#colorCharges)"
+                    animationDuration={1500}
+                  />
+                )}
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
