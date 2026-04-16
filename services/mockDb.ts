@@ -3,10 +3,10 @@ import { User, Subscription } from '../types';
 
 const CURRENT_USER: User = {
   id: 'usr_001',
-  email: 'qient@test.cz',
-  fullName: 'Emily Miller',
-  username: '@emilymiller',
-  avatarUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026704d'
+  email: 'contact@irysagency.com',
+  fullName: 'Quentin Deleu',
+  username: '@irysagency',
+  avatarUrl: 'https://i.pravatar.cc/150?u=irysagency'
 };
 
 export const mockDb = {

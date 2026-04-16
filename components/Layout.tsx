@@ -6,7 +6,6 @@ import {
   ArrowLeftRight,
   History,
   Settings,
-  LifeBuoy,
   Search,
   Bell,
   Menu,
@@ -96,7 +95,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
 
           <div className="text-xs font-semibold text-muted px-4 mt-8 mb-2 uppercase tracking-wider">Preferences</div>
           <NavItem page="settings" icon={Settings} label="Settings" />
-          <NavItem page="support" icon={LifeBuoy} label="Support" />
         </div>
 
         {/* PROMO CARD */}
