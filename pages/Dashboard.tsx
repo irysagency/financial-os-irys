@@ -313,6 +313,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             <h3 className="font-bold">Dernières transactions</h3>
           </div>
 
+          <div className="space-y-4">
             {recentTransactions.map(tx => (
               <div
                 key={tx.id}
