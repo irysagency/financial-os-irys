@@ -49,7 +49,7 @@ export const PnL: React.FC = () => {
   const localPrestations = useMemo(() => {
     try {
       const raw = localStorage.getItem('irys_prestations');
-      return raw ? (JSON.parse(raw) as Array<{ montantHT: number; dateEmission: string; statut: string }>) : [];
+      return raw ? (JSON.parse(raw) as Array<{ montantHT: number; dateDebut?: string; dateEmission?: string; statut: string }>) : [];
     } catch { return []; }
   }, []);
 
@@ -137,8 +137,9 @@ export const PnL: React.FC = () => {
   const prestationsByMois = useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of localPrestations) {
-      if (!p.dateEmission || p.statut === 'Impayé') continue;
-      const mois = p.dateEmission.slice(0, 7); // YYYY-MM
+      const dateKey = p.dateDebut || p.dateEmission;
+      if (!dateKey || p.statut === 'Impayé') continue;
+      const mois = dateKey.slice(0, 7); // YYYY-MM
       map[mois] = (map[mois] ?? 0) + (p.montantHT ?? 0);
     }
     return map;

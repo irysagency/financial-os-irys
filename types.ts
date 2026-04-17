@@ -71,19 +71,28 @@ export interface Organization {
 // NOUVEAUX TYPES — Financial OS Irys
 // ------------------------------------------------------------------
 
-export type PrestationStatus = 'Brouillon' | 'Signé' | 'En attente' | 'Payé' | 'Impayé';
+export type PrestationStatus = 'Signé' | 'En attente' | 'Payé';
+
+export interface CoutPrestation {
+  id: string;
+  description: string;
+  montantHT: number;
+}
 
 export interface Prestation {
   id: string;
   client: string;
-  description: string;
+  prestation: string;        // description de la prestation
   montantHT: number;
   tva: number;
   montantTTC: number;
-  dateEmission: string;  // ISO YYYY-MM-DD
-  dateEcheance: string;  // ISO YYYY-MM-DD
+  dateDebut: string;         // ISO YYYY-MM-DD — date de début de projet
   statut: PrestationStatus;
   source: 'qonto' | 'manual';
+  couts: CoutPrestation[];   // coûts liés (prestataires, achats, transport…)
+  // legacy fields kept for backward compat with old localStorage data
+  description?: string;
+  dateEmission?: string;
 }
 
 export interface PnlMonthData {

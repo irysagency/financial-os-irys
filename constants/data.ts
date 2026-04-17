@@ -132,19 +132,19 @@ export const CURRENT_ORG: Organization = {
 // Source : export 16/04/2026 — catégorie "Chiffre d'affaires"
 // ------------------------------------------------------------------
 export const QONTO_PRESTATIONS: Prestation[] = [
-  { id:'qp-da29d7', client:'Ines Lassini',                 description:'', montantHT:500.00,  tva:100.00, montantTTC:600.00,  dateEmission:'2026-04-13', dateEcheance:'2026-04-13', statut:'Payé', source:'qonto' },
-  { id:'qp-7960c8', client:'Stripe Technology Europe Ltd',  description:'', montantHT:13.68,   tva:2.74,   montantTTC:16.42,   dateEmission:'2026-04-01', dateEcheance:'2026-04-01', statut:'Payé', source:'qonto' },
-  { id:'qp-b69265', client:'CECCA INVEST',                  description:'', montantHT:2955.00, tva:591.00, montantTTC:3546.00, dateEmission:'2026-03-27', dateEcheance:'2026-03-27', statut:'Payé', source:'qonto' },
-  { id:'qp-39fed1', client:'MAISON FRED MANDELIEU',         description:'', montantHT:208.33,  tva:41.67,  montantTTC:250.00,  dateEmission:'2026-03-25', dateEcheance:'2026-03-25', statut:'Payé', source:'qonto' },
-  { id:'qp-38bb5f', client:'CECCA LYON',                    description:'', montantHT:500.00,  tva:100.00, montantTTC:600.00,  dateEmission:'2026-03-25', dateEcheance:'2026-03-25', statut:'Payé', source:'qonto' },
-  { id:'qp-0b08ec', client:'CECCA INVEST',                  description:'', montantHT:3500.00, tva:700.00, montantTTC:4200.00, dateEmission:'2026-02-16', dateEcheance:'2026-02-16', statut:'Payé', source:'qonto' },
-  { id:'qp-5e1040', client:'Stripe Technology Europe Ltd',  description:'', montantHT:37.19,   tva:7.44,   montantTTC:44.63,   dateEmission:'2026-02-02', dateEcheance:'2026-02-02', statut:'Payé', source:'qonto' },
-  { id:'qp-20d41c', client:'MME LASSINI INES',              description:'', montantHT:500.00,  tva:100.00, montantTTC:600.00,  dateEmission:'2026-01-15', dateEcheance:'2026-01-15', statut:'Payé', source:'qonto' },
-  { id:'qp-8b818f', client:'Kilian Adam',                   description:'', montantHT:257.50,  tva:51.50,  montantTTC:309.00,  dateEmission:'2026-01-02', dateEcheance:'2026-01-02', statut:'Payé', source:'qonto' },
-  { id:'qp-107c9b', client:'Ines Lassini',                  description:'', montantHT:250.00,  tva:50.00,  montantTTC:300.00,  dateEmission:'2025-12-04', dateEcheance:'2025-12-04', statut:'Payé', source:'qonto' },
-  { id:'qp-58c82e', client:'Stripe Technology Europe Ltd',  description:'', montantHT:69.20,   tva:13.84,  montantTTC:83.04,   dateEmission:'2025-12-01', dateEcheance:'2025-12-01', statut:'Payé', source:'qonto' },
-  { id:'qp-247145', client:'Stripe Technology Europe Ltd',  description:'', montantHT:129.07,  tva:25.82,  montantTTC:154.89,  dateEmission:'2025-11-03', dateEcheance:'2025-11-03', statut:'Payé', source:'qonto' },
-  { id:'qp-87127e', client:'FOUREZ Quentin',                description:'', montantHT:83.33,   tva:16.67,  montantTTC:100.00,  dateEmission:'2025-10-01', dateEcheance:'2025-10-01', statut:'Payé', source:'qonto' },
+  { id:'qp-da29d7', client:'Ines Lassini',                prestation:'', montantHT:500.00,  tva:100.00, montantTTC:600.00,  dateDebut:'2026-04-13', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-7960c8', client:'Stripe Technology Europe Ltd', prestation:'', montantHT:13.68,   tva:2.74,   montantTTC:16.42,  dateDebut:'2026-04-01', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-b69265', client:'CECCA INVEST',                 prestation:'', montantHT:2955.00, tva:591.00, montantTTC:3546.00,dateDebut:'2026-03-27', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-39fed1', client:'MAISON FRED MANDELIEU',        prestation:'', montantHT:208.33,  tva:41.67,  montantTTC:250.00, dateDebut:'2026-03-25', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-38bb5f', client:'CECCA LYON',                   prestation:'', montantHT:500.00,  tva:100.00, montantTTC:600.00, dateDebut:'2026-03-25', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-0b08ec', client:'CECCA INVEST',                 prestation:'', montantHT:3500.00, tva:700.00, montantTTC:4200.00,dateDebut:'2026-02-16', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-5e1040', client:'Stripe Technology Europe Ltd', prestation:'', montantHT:37.19,   tva:7.44,   montantTTC:44.63,  dateDebut:'2026-02-02', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-20d41c', client:'MME LASSINI INES',             prestation:'', montantHT:500.00,  tva:100.00, montantTTC:600.00, dateDebut:'2026-01-15', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-8b818f', client:'Kilian Adam',                  prestation:'', montantHT:257.50,  tva:51.50,  montantTTC:309.00, dateDebut:'2026-01-02', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-107c9b', client:'Ines Lassini',                 prestation:'', montantHT:250.00,  tva:50.00,  montantTTC:300.00, dateDebut:'2025-12-04', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-58c82e', client:'Stripe Technology Europe Ltd', prestation:'', montantHT:69.20,   tva:13.84,  montantTTC:83.04,  dateDebut:'2025-12-01', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-247145', client:'Stripe Technology Europe Ltd', prestation:'', montantHT:129.07,  tva:25.82,  montantTTC:154.89, dateDebut:'2025-11-03', statut:'Payé', source:'qonto', couts:[] },
+  { id:'qp-87127e', client:'FOUREZ Quentin',               prestation:'', montantHT:83.33,   tva:16.67,  montantTTC:100.00, dateDebut:'2025-10-01', statut:'Payé', source:'qonto', couts:[] },
 ];
 
 // P&L mensuel — calculé depuis export Qonto (oct 2025 → avr 2026).
