@@ -4,6 +4,7 @@ import { MoreHorizontal, RefreshCw } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
+  PieChart, Pie, Cell,
 } from 'recharts';
 
 const fmtEur = (n: number) =>
@@ -46,6 +47,9 @@ export const Dashboard: React.FC = () => {
   const monthlyCost = subscriptions
     .filter(a => a.frequence === 'Mensuel')
     .reduce((s, a) => s + a.montantHT, 0);
+
+  // Total expenses for the donut center
+  const totalExpenses = kpis.find(k => k.title === 'Dépenses (Mois)')?.amount || 0;
 
   if (isLoading) {
     return <div className="h-full flex items-center justify-center text-[#FF4D00]">Chargement…</div>;
@@ -250,24 +254,49 @@ export const Dashboard: React.FC = () => {
       {/* BOTTOM: EXPENSE DONUT + RECENT TRANSACTIONS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* EXPENSE DISTRIBUTION */}
-        <div className="bg-card border border-[#2A2A2A] p-6 rounded-3xl">
-          <h3 className="font-bold mb-6">Répartition des dépenses</h3>
-          <div className="space-y-3">
+        {/* EXPENSE DISTRIBUTION (DONUT CHART) */}
+        <div className="bg-card border border-[#2A2A2A] p-6 rounded-3xl flex flex-col">
+          <h3 className="font-bold mb-4">Répartition des dépenses</h3>
+          
+          <div className="relative h-64 w-full flex-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={expenseDistribution}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={85}
+                  paddingAngle={5}
+                  dataKey="value"
+                  animationBegin={0}
+                  animationDuration={1500}
+                >
+                  {expenseDistribution.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #333', borderRadius: '12px' }}
+                  itemStyle={{ color: '#fff' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            
+            {/* Center Label */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
+              <span className="text-[10px] text-muted uppercase tracking-wider font-medium">Dépenses</span>
+              <span className="text-lg font-bold">{fmtEur(totalExpenses).replace(',00', '')}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-4">
             {expenseDistribution.map((item: any) => (
-              <div key={item.name}>
-                <div className="flex justify-between text-sm mb-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-muted">{item.name}</span>
-                  </div>
-                  <span className="font-bold">{item.value}%</span>
-                </div>
-                <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${item.value}%`, backgroundColor: item.color }}
-                  />
+              <div key={item.name} className="flex items-center gap-2 bg-[#1A1A1A] p-2 rounded-xl border border-[#2A2A2A]">
+                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] text-muted truncate">{item.name}</div>
+                  <div className="text-xs font-bold">{item.value}%</div>
                 </div>
               </div>
             ))}
