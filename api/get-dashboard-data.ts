@@ -91,6 +91,12 @@ export default async function handler(req: any, res: any) {
         
         if (txMonth === currentMonth && txYear === currentYear) metrics.current.revenue += amount;
         if (txMonth === prevMonth && txYear === prevYear) metrics.previous.revenue += amount;
+
+        // CREDIT - Client metrics
+        const clientName = tx.label || 'Client Inconnu';
+        if (!clientData[clientName]) clientData[clientName] = { total: 0, months: new Set() };
+        clientData[clientName].total += amount;
+        clientData[clientName].months.add(monthKey);
       } else {
         metrics.totalBalance -= amount;
         monthlyData[monthKey].charges += amount;
@@ -104,16 +110,8 @@ export default async function handler(req: any, res: any) {
         if (txMonth === currentMonth && txYear === currentYear) metrics.current.expenses += amount;
         if (txMonth === prevMonth && txYear === prevYear) metrics.previous.expenses += amount;
 
-        // Categorization for current month (or all time, let's do all time for the donut)
-        const cat = categorize(tx.label || '');
         categoryTotals[cat] = (categoryTotals[cat] || 0) + amount;
         totalExpenseAmount += amount;
-      } else {
-        // CREDIT - Client metrics
-        const clientName = tx.label || 'Client Inconnu';
-        if (!clientData[clientName]) clientData[clientName] = { total: 0, months: new Set() };
-        clientData[clientName].total += amount;
-        clientData[clientName].months.add(monthKey);
       }
     });
 
