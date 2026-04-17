@@ -314,7 +314,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
 
           <div className="space-y-4">
-            {recentTransactions.map(tx => (
+            {recentTransactions.slice(0, 4).map(tx => (
               <div
                 key={tx.id}
                 className="flex items-center justify-between py-2 border-b border-[#1A1A1A] last:border-0 hover:bg-[#1A1A1A] rounded-xl px-2 -mx-2 transition-colors"
