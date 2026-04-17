@@ -65,7 +65,39 @@
 <link rel="stylesheet" href="/index.css">
 </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Loading state before React mounts -->
+      <div id="html-loader" style="
+        min-height: 100vh;
+        background-color: #0A0A0A;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 16px;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      ">
+        <div style="
+          width: 44px; height: 44px;
+          background: #FF4D00;
+          border-radius: 12px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 22px; font-weight: bold; color: #000;
+        ">I</div>
+        <div style="color: #888; font-size: 14px; letter-spacing: 0.05em;">Chargement…</div>
+      </div>
+    </div>
   <script type="module" src="/index.tsx"></script>
+  <script>
+    // Remove loader once React has mounted
+    const observer = new MutationObserver(() => {
+      const loader = document.getElementById('html-loader');
+      if (loader && document.querySelector('#root > *:not(#html-loader)')) {
+        loader.remove();
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.getElementById('root'), { childList: true });
+  </script>
 </body>
 </html>

@@ -163,7 +163,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1A1A1A" />
                 <XAxis
-                  dataKey="name"
+                  dataKey="label"
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: '#666', fontSize: 12 }}
