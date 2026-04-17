@@ -171,6 +171,8 @@ export const ABONNEMENTS_INITIALS: AbonnementItem[] = [
   { id:'ab6',  nom:'Squarespace Workspace', categorie:'Hébergement',       montantHT:16.00,  frequence:'Mensuel', prochaineDate:'2026-05-10', statut:'Actif' },
   { id:'ab7',  nom:'Squarespace Domain',    categorie:'Hébergement',       montantHT:18.00,  frequence:'Annuel',  prochaineDate:'2027-04-14', statut:'Actif' },
   { id:'ab8',  nom:'Monis Rent',            categorie:'Opérationnel',      montantHT:37.12,  frequence:'Mensuel', prochaineDate:'2026-05-01', statut:'Actif' },
+  { id:'ab9',  nom:'Clicteur Thomas',       categorie:'Production',        montantHT:272.17, frequence:'Mensuel', prochaineDate:'2026-04-30', statut:'Actif' },
+  { id:'ab10', nom:'Noble Productions',     categorie:'Production',        montantHT:520.00, frequence:'Mensuel', prochaineDate:'2026-05-01', statut:'Actif' },
 ];
 
 // 5 derniers virements sortants (méthode "Transférer"). Source : Qonto export.

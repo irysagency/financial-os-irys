@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Edit2, Check, X } from 'lucide-react';
+import { Edit2, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ComposedChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -16,26 +16,20 @@ const fmtEur = (n: number) =>
 
 const IS_RATE  = 0.15;
 const PFU_RATE = 0.30;
-const CURRENT_MONTH = '2026-04';
 
-const FORECAST_MONTHS = [
-  { mois: '2026-05', label: 'Mai 26'  },
-  { mois: '2026-06', label: 'Juin 26' },
-  { mois: '2026-07', label: 'Juil 26' },
-  { mois: '2026-08', label: 'Août 26' },
-  { mois: '2026-09', label: 'Sep 26'  },
-  { mois: '2026-10', label: 'Oct 26'  },
-  { mois: '2026-11', label: 'Nov 26'  },
-  { mois: '2026-12', label: 'Déc 26'  },
-];
+/* Dynamic current month */
+const _now = new Date();
+const CURRENT_YEAR_ACTUAL = _now.getFullYear();
+const CURRENT_MONTH = `${CURRENT_YEAR_ACTUAL}-${String(_now.getMonth() + 1).padStart(2, '0')}`;
 
 /* ── component ───────────────────────────────────────────────── */
 
 export const PnL: React.FC = () => {
 
   const { pnl } = useApp();
-  
+
   /* state */
+  const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR_ACTUAL);
   const [objCA, setObjCA] = useState<number>(() =>
     parseInt(localStorage.getItem('irys_objectif_ca_annuel') ?? '60000') || 60000
   );
@@ -46,7 +40,6 @@ export const PnL: React.FC = () => {
     try { return JSON.parse(localStorage.getItem('irys_previsions') ?? '{}'); }
     catch { return {}; }
   });
-  const [filterPeriod, setFilterPeriod] = useState<'all' | '3m' | '6m'>('all');
   const [modalCA,       setModalCA]       = useState(false);
   const [modalResultat, setModalResultat] = useState(false);
   const [draftCA,       setDraftCA]       = useState(objCA);
@@ -58,99 +51,154 @@ export const PnL: React.FC = () => {
   useEffect(() => { localStorage.setItem('irys_objectif_ca_annuel',      String(objCA));       }, [objCA]);
   useEffect(() => { localStorage.setItem('irys_objectif_resultat_annuel', String(objResultat)); }, [objResultat]);
   useEffect(() => { localStorage.setItem('irys_previsions', JSON.stringify(previsions));        }, [previsions]);
-  
-  /* ── computed metrics ────────────────────────────────────────── */
-  
-  // Real History from API
+
+  /* ── real history from API ───────────────────────────────────── */
+
   const history = useMemo(() => {
     if (!pnl?.history) return [];
     return pnl.history.map((m: any) => ({
-      mois: m.mois,
-      label: m.label,
-      caHT: m.ca,
+      mois:           m.mois,
+      label:          m.label,
+      caHT:           m.ca,
       totalChargesHT: m.charges,
-      fraisBanc: m.fraisBancaires,
-      resultatNet: m.resultat
+      fraisBanc:      m.fraisBancaires,
+      resultatNet:    m.resultat,
     }));
   }, [pnl]);
 
-  const mois2026     = history.filter(m => m.mois >= '2026-01');
-  const ytdCA        = mois2026.reduce((s, m) => s + m.caHT,       0);
-  const ytdResultat  = mois2026.reduce((s, m) => s + m.resultatNet, 0);
+  /* ── available years from data ───────────────────────────────── */
 
-  /* averages on complete months (excluding current partial month if needed) */
-  // Let's take the last 3 months with data as "complete" average
-  const complete = history.filter(m => m.caHT > 0).slice(-4, -1); 
-  const currentComplete = complete.length > 0 ? complete : history.filter(m => m.caHT > 0).slice(-3);
-  
-  const avgCaHT       = currentComplete.length ? currentComplete.reduce((s, m) => s + m.caHT,            0) / currentComplete.length : 0;
-  const avgChargesHT  = currentComplete.length ? currentComplete.reduce((s, m) => s + m.totalChargesHT,  0) / currentComplete.length : 0;
-  const avgFraisBanc  = currentComplete.length ? currentComplete.reduce((s, m) => s + m.fraisBanc,       0) / currentComplete.length : 0;
-  const avgResultatNet = currentComplete.length ? currentComplete.reduce((s, m) => s + m.resultatNet,    0) / currentComplete.length : 0;
+  const availableYears = useMemo(() => {
+    const years = new Set(history.map(m => parseInt(m.mois.split('-')[0])));
+    years.add(CURRENT_YEAR_ACTUAL);
+    return [...years].sort();
+  }, [history]);
 
-  const objCaMensuel      = Math.round(objCA / 12);
+  /* ── all 12 months for selected year ─────────────────────────── */
+
+  const yearMonths = useMemo(() =>
+    Array.from({ length: 12 }, (_, i) => {
+      const month = i + 1;
+      const mois  = `${selectedYear}-${String(month).padStart(2, '0')}`;
+      const d     = new Date(selectedYear, i, 1);
+      return {
+        mois,
+        label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+      };
+    }),
+    [selectedYear]
+  );
+
+  /* ── history lookup map ──────────────────────────────────────── */
+
+  const historyByMois = useMemo(() =>
+    Object.fromEntries(history.map(m => [m.mois, m])),
+    [history]
+  );
+
+  /* ── data for selected year ──────────────────────────────────── */
+
+  const moisYear = useMemo(() =>
+    history.filter(m => m.mois.startsWith(`${selectedYear}-`)),
+    [history, selectedYear]
+  );
+
+  const ytdCA       = moisYear.reduce((s, m) => s + m.caHT,       0);
+  const ytdResultat = moisYear.reduce((s, m) => s + m.resultatNet, 0);
+
+  /* ── forecast months (future months of current year only) ────── */
+
+  const forecastMonths = useMemo(() =>
+    selectedYear === CURRENT_YEAR_ACTUAL
+      ? yearMonths.filter(m => m.mois > CURRENT_MONTH)
+      : [],
+    [yearMonths, selectedYear]
+  );
+
+  /* ── averages on last 3 complete months ──────────────────────── */
+
+  const complete = history.filter(m => m.caHT > 0).slice(-4, -1);
+  const refMonths = complete.length > 0 ? complete : history.filter(m => m.caHT > 0).slice(-3);
+
+  const avgCaHT       = refMonths.length ? refMonths.reduce((s, m) => s + m.caHT,            0) / refMonths.length : 0;
+  const avgChargesHT  = refMonths.length ? refMonths.reduce((s, m) => s + m.totalChargesHT,  0) / refMonths.length : 0;
+  const avgFraisBanc  = refMonths.length ? refMonths.reduce((s, m) => s + m.fraisBanc,        0) / refMonths.length : 0;
+  const avgResultatNet = refMonths.length ? refMonths.reduce((s, m) => s + m.resultatNet,     0) / refMonths.length : 0;
+
+  const objCaMensuel       = Math.round(objCA / 12);
   const objResultatMensuel = Math.round(objResultat / 12);
 
-  /* client KPIs from API */
-  const panierMoyen  = pnl?.clientMetrics?.panierMoyen ?? 0;
-  const avgDureeVie  = pnl?.clientMetrics?.avgLifetime ?? 0;
-  const ltv          = pnl?.clientMetrics?.ltv ?? 0;
-  const uniqueClientsCount = pnl?.clientMetrics?.count ?? 0;
+  /* ── client KPIs from API ────────────────────────────────────── */
 
-  /* net benefit */
+  const panierMoyen        = pnl?.clientMetrics?.panierMoyen  ?? 0;
+  const avgDureeVie        = pnl?.clientMetrics?.avgLifetime  ?? 0;
+  const ltv                = pnl?.clientMetrics?.ltv          ?? 0;
+  const uniqueClientsCount = pnl?.clientMetrics?.count        ?? 0;
+
+  /* ── net benefit ─────────────────────────────────────────────── */
+
   const apresIS         = avgResultatNet * (1 - IS_RATE);
   const apresDividendes = apresIS        * (1 - PFU_RATE);
 
-  /* ── chart data ──────────────────────────────────────────────── */
-
-  const allChartData = useMemo(() => {
-    if (history.length === 0) return [];
-    const lastIdx = history.length - 1;
-
-    const realData = history.map((m, i) => ({
-      label:        m.label,
-      mois:         m.mois,
-      caHT:         m.caHT,
-      chargesHT:    m.totalChargesHT,
-      resultat:     m.resultatNet,
-      /* connection point: last real month appears in both series */
-      caHT_fc:      i === lastIdx ? m.caHT            : null,
-      chargesHT_fc: i === lastIdx ? m.totalChargesHT  : null,
-      resultat_fc:  i === lastIdx ? m.resultatNet      : null,
-      isReal: true,
-    }));
-
-    const forecastData = FORECAST_MONTHS.map(fm => {
-      const fcCA      = previsions[fm.mois] ?? avgCaHT;
-      const fcRes     = fcCA - avgChargesHT - avgFraisBanc;
-      return {
-        label:        fm.label,
-        mois:         fm.mois,
-        caHT:         null as number | null,
-        chargesHT:    null as number | null,
-        resultat:     null as number | null,
-        caHT_fc:      fcCA,
-        chargesHT_fc: avgChargesHT,
-        resultat_fc:  fcRes,
-        isReal: false,
-      };
-    });
-
-    return [...realData, ...forecastData];
-  }, [history, previsions, avgCaHT, avgChargesHT, avgFraisBanc]);
+  /* ── chart data — full year (real + projection) ──────────────── */
 
   const chartData = useMemo(() => {
-    const realOnly = allChartData.filter(d => d.isReal);
-    if (filterPeriod === '3m') return realOnly.slice(-3);
-    if (filterPeriod === '6m') return realOnly.slice(-6);
-    return allChartData;
-  }, [allChartData, filterPeriod]);
+    const isCurrentYear = selectedYear === CURRENT_YEAR_ACTUAL;
 
-  const lastRealLabel = history[history.length - 1]?.label ?? '';
+    return yearMonths.map(({ mois, label }) => {
+      const real             = historyByMois[mois];
+      const isFuture         = mois > CURRENT_MONTH;
+      const isConnectionPt   = mois === CURRENT_MONTH && isCurrentYear;
 
-  /* handlers */
+      /* real data point */
+      if (real && !isFuture) {
+        return {
+          label, mois,
+          caHT:         real.caHT,
+          chargesHT:    real.totalChargesHT,
+          resultat:     real.resultatNet,
+          /* connection point: last real month duplicated into forecast series */
+          caHT_fc:      isConnectionPt ? real.caHT           : null,
+          chargesHT_fc: isConnectionPt ? real.totalChargesHT : null,
+          resultat_fc:  isConnectionPt ? real.resultatNet     : null,
+          isReal: true,
+        };
+      }
+
+      /* forecast point (future months of current year) */
+      if (isFuture && isCurrentYear) {
+        const fcCA  = previsions[mois] ?? avgCaHT;
+        const fcRes = fcCA - avgChargesHT - avgFraisBanc;
+        return {
+          label, mois,
+          caHT: null, chargesHT: null, resultat: null,
+          caHT_fc:      fcCA,
+          chargesHT_fc: avgChargesHT,
+          resultat_fc:  fcRes,
+          isReal: false,
+        };
+      }
+
+      /* past year — no data available */
+      return {
+        label, mois,
+        caHT:      real?.caHT           ?? 0,
+        chargesHT: real?.totalChargesHT ?? 0,
+        resultat:  real?.resultatNet    ?? 0,
+        caHT_fc: null, chargesHT_fc: null, resultat_fc: null,
+        isReal: true,
+      };
+    });
+  }, [yearMonths, historyByMois, previsions, avgCaHT, avgChargesHT, avgFraisBanc, selectedYear]);
+
+  const lastRealLabel = [...moisYear]
+    .filter(m => m.mois <= CURRENT_MONTH)
+    .pop()?.label ?? '';
+
+  /* ── handlers ────────────────────────────────────────────────── */
+
   const handleChartClick = (data: any) => {
-    if (!data?.activePayload?.length) return;
+    if (!data?.activePayload?.length || selectedYear !== CURRENT_YEAR_ACTUAL) return;
     const pt = data.activePayload[0]?.payload;
     if (pt && !pt.isReal) {
       setEditingMonth(pt.mois);
@@ -164,11 +212,50 @@ export const PnL: React.FC = () => {
     setEditingMonth(null);
   };
 
+  const isCurrentYear = selectedYear === CURRENT_YEAR_ACTUAL;
+
   /* ── render ──────────────────────────────────────────────────── */
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <h1 className="text-2xl font-bold">P&L — Compte de résultat</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">P&L — Compte de résultat</h1>
+
+        {/* Year selector */}
+        <div className="flex items-center gap-1 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-1">
+          <button
+            onClick={() => {
+              const idx = availableYears.indexOf(selectedYear);
+              if (idx > 0) setSelectedYear(availableYears[idx - 1]);
+            }}
+            disabled={availableYears.indexOf(selectedYear) === 0}
+            className="p-1.5 rounded-lg text-muted hover:text-white disabled:opacity-30 transition-colors"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          {availableYears.map(y => (
+            <button
+              key={y}
+              onClick={() => setSelectedYear(y)}
+              className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+                selectedYear === y ? 'bg-[#FF4D00] text-white' : 'text-muted hover:text-white'
+              }`}
+            >
+              {y}
+            </button>
+          ))}
+          <button
+            onClick={() => {
+              const idx = availableYears.indexOf(selectedYear);
+              if (idx < availableYears.length - 1) setSelectedYear(availableYears[idx + 1]);
+            }}
+            disabled={availableYears.indexOf(selectedYear) === availableYears.length - 1}
+            className="p-1.5 rounded-lg text-muted hover:text-white disabled:opacity-30 transition-colors"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
 
       {/* ── S1 HERO OBJECTIVES ─────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -178,7 +265,7 @@ export const PnL: React.FC = () => {
           <div className="flex justify-between items-start mb-5">
             <div>
               <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                Objectif CA annuel
+                Objectif CA annuel {selectedYear}
               </div>
               <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="text-3xl font-bold text-[#FF4D00]">{fmtEur(ytdCA)}</span>
@@ -211,7 +298,7 @@ export const PnL: React.FC = () => {
           <div className="flex justify-between items-start mb-5">
             <div>
               <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                Objectif résultat net annuel
+                Objectif résultat net {selectedYear}
               </div>
               <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="text-3xl font-bold text-[#4ade80]">{fmtEur(ytdResultat)}</span>
@@ -240,29 +327,24 @@ export const PnL: React.FC = () => {
         </div>
       </div>
 
-      {/* ── S2 GRAPHIQUE PRÉVISIONNEL ───────────────────────────── */}
+      {/* ── S2 GRAPHIQUE ANNUEL ─────────────────────────────────── */}
       <div className="bg-card border border-[#2A2A2A] p-6 rounded-3xl">
 
         <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
           <div>
-            <h2 className="font-bold">Évolution & Projection CA</h2>
+            <h2 className="font-bold">Évolution & Projection CA — {selectedYear}</h2>
             <p className="text-xs text-muted mt-0.5">
-              Réel (trait plein) · Prévisionnel (pointillé) — cliquer sur un mois futur pour saisir un CA manuel
+              {isCurrentYear
+                ? 'Réel (trait plein) · Prévisionnel (pointillé) — cliquer sur un mois futur pour saisir un CA manuel'
+                : `Vue annuelle ${selectedYear}`}
             </p>
           </div>
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-1 flex text-xs">
-            {(['all', '6m', '3m'] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => setFilterPeriod(f)}
-                className={`px-3 py-1.5 rounded-lg transition-colors ${
-                  filterPeriod === f ? 'bg-[#FF4D00] text-white font-bold' : 'text-muted hover:text-white'
-                }`}
-              >
-                {f === 'all' ? 'Tout' : f === '6m' ? '6 mois' : '3 mois'}
-              </button>
-            ))}
-          </div>
+          {isCurrentYear && (
+            <div className="text-xs text-muted flex items-center gap-1.5">
+              <div className="w-5 border-t border-dashed border-[#FF4D00]/50" />
+              Prévisionnel
+            </div>
+          )}
         </div>
 
         <div className="h-72">
@@ -271,7 +353,7 @@ export const PnL: React.FC = () => {
               data={chartData}
               margin={{ top: 10, right: 70, left: -10, bottom: 0 }}
               onClick={handleChartClick}
-              style={{ cursor: filterPeriod === 'all' ? 'pointer' : 'default' }}
+              style={{ cursor: isCurrentYear ? 'pointer' : 'default' }}
             >
               <defs>
                 <linearGradient id="gCA" x1="0" y1="0" x2="0" y2="1">
@@ -306,18 +388,16 @@ export const PnL: React.FC = () => {
               />
 
               {/* Ligne objectif mensuel */}
-              {filterPeriod === 'all' && (
-                <ReferenceLine
-                  y={objCaMensuel}
-                  stroke="#FF4D00"
-                  strokeDasharray="4 4"
-                  strokeOpacity={0.35}
-                  label={{ value: `obj. ${Math.round(objCaMensuel / 1000)}k`, position: 'right', fill: '#FF4D00', fontSize: 10, opacity: 0.7 }}
-                />
-              )}
+              <ReferenceLine
+                y={objCaMensuel}
+                stroke="#FF4D00"
+                strokeDasharray="4 4"
+                strokeOpacity={0.35}
+                label={{ value: `obj. ${Math.round(objCaMensuel / 1000)}k`, position: 'right', fill: '#FF4D00', fontSize: 10, opacity: 0.7 }}
+              />
 
               {/* Séparateur réel / prévision */}
-              {filterPeriod === 'all' && (
+              {isCurrentYear && lastRealLabel && (
                 <ReferenceLine
                   x={lastRealLabel}
                   stroke="#333"
@@ -334,8 +414,8 @@ export const PnL: React.FC = () => {
               <Area type="monotone" dataKey="resultat"
                 stroke="#4ade80" strokeWidth={2} fill="url(#gRES)" fillOpacity={1} connectNulls={false} dot={false} />
 
-              {/* PRÉVISION (pointillé) */}
-              {filterPeriod === 'all' && (
+              {/* PRÉVISION (pointillé) — toujours visible pour l'année en cours */}
+              {isCurrentYear && (
                 <>
                   <Area type="monotone" dataKey="chargesHT_fc"
                     stroke="#666" strokeWidth={1.5} strokeDasharray="5 4" strokeOpacity={0.45}
@@ -357,21 +437,15 @@ export const PnL: React.FC = () => {
           <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-[#FF4D00]" /> CA HT</div>
           <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-[#666]" /> Charges HT</div>
           <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-[#4ade80]" /> Résultat net</div>
-          {filterPeriod === 'all' && (
-            <div className="flex items-center gap-1.5 ml-auto">
-              <div className="w-5 border-t border-dashed border-[#FF4D00]/40" />
-              Prévisionnel (cliquer pour modifier)
-            </div>
-          )}
         </div>
 
         {/* Panneau édition mois prévisionnel */}
-        {filterPeriod === 'all' && editingMonth && (
+        {isCurrentYear && editingMonth && (
           <div className="mt-4 pt-4 border-t border-[#2A2A2A] flex flex-wrap items-center gap-3">
             <span className="text-xs text-muted">
               CA prévisionnel —{' '}
               <span className="text-white font-medium">
-                {FORECAST_MONTHS.find(f => f.mois === editingMonth)?.label}
+                {forecastMonths.find(f => f.mois === editingMonth)?.label}
               </span>
             </span>
             <input
@@ -393,15 +467,15 @@ export const PnL: React.FC = () => {
         )}
 
         {/* Overrides en cours */}
-        {filterPeriod === 'all' && Object.keys(previsions).length > 0 && (
+        {isCurrentYear && Object.keys(previsions).length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {Object.entries(previsions).map(([mois, val]) => {
-              const fm = FORECAST_MONTHS.find(f => f.mois === mois);
+              const fm = forecastMonths.find(f => f.mois === mois);
               if (!fm) return null;
               return (
                 <div key={mois} className="flex items-center gap-1.5 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-2.5 py-1 text-xs">
                   <span className="text-muted">{fm.label} :</span>
-                  <span className="font-bold text-[#FF4D00]">{fmtEur(val)}</span>
+                  <span className="font-bold text-[#FF4D00]">{fmtEur(val as number)}</span>
                   <button
                     onClick={() => setPrevisions(p => { const n = { ...p }; delete n[mois]; return n; })}
                     className="text-muted hover:text-[#FF4D00] ml-1 transition-colors"
@@ -438,77 +512,87 @@ export const PnL: React.FC = () => {
       <div className="bg-card border border-[#2A2A2A] rounded-3xl overflow-hidden">
         <div className="px-6 py-4 border-b border-[#2A2A2A]">
           <h2 className="font-bold">Résumé mensuel condensé</h2>
-          <p className="text-xs text-muted mt-0.5">Oct 2025 → Avr 2026 (partiel)</p>
+          <p className="text-xs text-muted mt-0.5">
+            {moisYear.length > 0
+              ? `Données réelles — ${moisYear[0].label} → ${moisYear[moisYear.length - 1].label}`
+              : `Aucune donnée pour ${selectedYear}`}
+          </p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-[#1A1A1A] border-b border-[#2A2A2A]">
-              <tr>
-                <th className="px-5 py-3 text-left font-medium text-muted sticky left-0 bg-[#1A1A1A] min-w-[140px]">
-                  Indicateur
-                </th>
-                {history.map(m => (
-                  <th key={m.mois}
-                    className={`px-4 py-3 text-right font-medium whitespace-nowrap ${
-                      m.mois === CURRENT_MONTH ? 'text-[#FF4D00]' : 'text-muted'
-                    }`}
-                  >
-                    {m.label}
+        {moisYear.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-[#1A1A1A] border-b border-[#2A2A2A]">
+                <tr>
+                  <th className="px-5 py-3 text-left font-medium text-muted sticky left-0 bg-[#1A1A1A] min-w-[140px]">
+                    Indicateur
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#1A1A1A]">
-              <tr className="hover:bg-[#1A1A1A]/30 transition-colors">
-                <td className="px-5 py-3 sticky left-0 bg-inherit font-bold text-white">CA HT</td>
-                {history.map(m => (
-                  <td key={m.mois}
-                    className={`px-4 py-3 text-right font-bold text-[#FF4D00] whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
-                  >
-                    {fmtEur(m.caHT)}
-                  </td>
-                ))}
-              </tr>
-              <tr className="hover:bg-[#1A1A1A]/30 transition-colors">
-                <td className="px-5 py-3 sticky left-0 bg-inherit text-muted">Charges HT</td>
-                {history.map(m => (
-                  <td key={m.mois}
-                    className={`px-4 py-3 text-right text-muted whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
-                  >
-                    {fmtEur(m.totalChargesHT)}
-                  </td>
-                ))}
-              </tr>
-              <tr className="hover:bg-[#1A1A1A]/30 transition-colors bg-[#111]">
-                <td className="px-5 py-3 sticky left-0 bg-inherit font-bold text-white">Résultat net</td>
-                {history.map(m => (
-                  <td key={m.mois}
-                    className={`px-4 py-3 text-right font-bold whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
-                  >
-                    <span className={m.resultatNet >= 0 ? 'text-[#4ade80]' : 'text-red-400'}>
-                      {fmtEur(m.resultatNet)}
-                    </span>
-                  </td>
-                ))}
-              </tr>
-              <tr className="hover:bg-[#1A1A1A]/30 transition-colors">
-                <td className="px-5 py-3 sticky left-0 bg-inherit text-muted text-xs">vs objectif</td>
-                {history.map(m => {
-                  const delta = objCaMensuel > 0 ? ((m.caHT - objCaMensuel) / objCaMensuel) * 100 : 0;
-                  return (
-                    <td key={m.mois}
-                      className={`px-4 py-3 text-right text-xs font-bold whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
+                  {moisYear.map(m => (
+                    <th key={m.mois}
+                      className={`px-4 py-3 text-right font-medium whitespace-nowrap ${
+                        m.mois === CURRENT_MONTH ? 'text-[#FF4D00]' : 'text-muted'
+                      }`}
                     >
-                      <span className={delta >= 0 ? 'text-[#4ade80]' : 'text-red-400'}>
-                        {delta >= 0 ? '+' : ''}{delta.toFixed(0)}%
+                      {m.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1A1A1A]">
+                <tr className="hover:bg-[#1A1A1A]/30 transition-colors">
+                  <td className="px-5 py-3 sticky left-0 bg-inherit font-bold text-white">CA HT</td>
+                  {moisYear.map(m => (
+                    <td key={m.mois}
+                      className={`px-4 py-3 text-right font-bold text-[#FF4D00] whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
+                    >
+                      {fmtEur(m.caHT)}
+                    </td>
+                  ))}
+                </tr>
+                <tr className="hover:bg-[#1A1A1A]/30 transition-colors">
+                  <td className="px-5 py-3 sticky left-0 bg-inherit text-muted">Charges HT</td>
+                  {moisYear.map(m => (
+                    <td key={m.mois}
+                      className={`px-4 py-3 text-right text-muted whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
+                    >
+                      {fmtEur(m.totalChargesHT)}
+                    </td>
+                  ))}
+                </tr>
+                <tr className="hover:bg-[#1A1A1A]/30 transition-colors bg-[#111]">
+                  <td className="px-5 py-3 sticky left-0 bg-inherit font-bold text-white">Résultat net</td>
+                  {moisYear.map(m => (
+                    <td key={m.mois}
+                      className={`px-4 py-3 text-right font-bold whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
+                    >
+                      <span className={m.resultatNet >= 0 ? 'text-[#4ade80]' : 'text-red-400'}>
+                        {fmtEur(m.resultatNet)}
                       </span>
                     </td>
-                  );
-                })}
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                  ))}
+                </tr>
+                <tr className="hover:bg-[#1A1A1A]/30 transition-colors">
+                  <td className="px-5 py-3 sticky left-0 bg-inherit text-muted text-xs">vs objectif</td>
+                  {moisYear.map(m => {
+                    const delta = objCaMensuel > 0 ? ((m.caHT - objCaMensuel) / objCaMensuel) * 100 : 0;
+                    return (
+                      <td key={m.mois}
+                        className={`px-4 py-3 text-right text-xs font-bold whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
+                      >
+                        <span className={delta >= 0 ? 'text-[#4ade80]' : 'text-red-400'}>
+                          {delta >= 0 ? '+' : ''}{delta.toFixed(0)}%
+                        </span>
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="px-6 py-12 text-center text-muted text-sm">
+            Aucune donnée disponible pour {selectedYear}
+          </div>
+        )}
       </div>
 
       {/* ── S5 BÉNÉFICE NET ─────────────────────────────────────── */}
@@ -517,7 +601,7 @@ export const PnL: React.FC = () => {
           <div>
             <h2 className="font-bold">Bénéfice net estimé</h2>
             <p className="text-xs text-muted mt-0.5">
-              Basé sur le résultat net moyen des mois complets (Jan – Mar 2026)
+              Basé sur le résultat net moyen des derniers mois complets
             </p>
           </div>
           <div className="text-right">
