@@ -175,7 +175,7 @@ export default async function handler(req: any, res: any) {
       chartData,
       expenseDistribution,
       subscriptions,
-      recentTransactions: (transactions || []).slice(0, 10).map((tx: any) => ({
+      recentTransactions: (transactions || []).slice(0, 6).map((tx: any) => ({
         id: tx.qonto_transaction_id,
         name: tx.label || 'Sans libellé',
         type: tx.side === 'credit' ? 'Income' : 'Expense',
