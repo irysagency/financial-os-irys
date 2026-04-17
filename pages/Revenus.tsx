@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { QONTO_PRESTATIONS } from '../constants/data';
+import { useApp } from '../context/AppContext';
 import { Prestation, PrestationStatus } from '../types';
 
 const formatDateFR = (iso: string) =>
@@ -31,9 +31,10 @@ const MOIS_OPTIONS = [
 const EMPTY_FORM = { client: '', description: '', montantHT: '', dateEmission: '', dateEcheance: '' };
 
 export const Revenus: React.FC = () => {
+  const { pnl, recentTransactions } = useApp();
   const [prestations, setPrestations] = useState<Prestation[]>(() => {
     const stored = localStorage.getItem('irys_prestations');
-    return stored ? JSON.parse(stored) : QONTO_PRESTATIONS;
+    return stored ? JSON.parse(stored) : [];
   });
   const [filterMois, setFilterMois] = useState('all');
   const [filterStatut, setFilterStatut] = useState('all');
@@ -45,14 +46,12 @@ export const Revenus: React.FC = () => {
     localStorage.setItem('irys_prestations', JSON.stringify(prestations));
   }, [prestations]);
 
-  // KPIs
-  const now = new Date();
-  const currentMois = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-  const cashCollecte = prestations
-    .filter(p => p.statut === 'Payé' && p.dateEmission.startsWith(currentMois))
-    .reduce((s, p) => s + p.montantTTC, 0);
-
+  // KPIs from Real Data (PnL API)
+  const currentMonthData = pnl?.history?.slice(-1)[0] || { ca: 0 };
+  const history2026 = pnl?.history?.filter((m: any) => m.mois >= '2026-01') || [];
+  
+  const cashCollecte = currentMonthData.ca;
+  
   const enAttente = prestations
     .filter(p => p.statut === 'En attente')
     .reduce((s, p) => s + p.montantTTC, 0);
@@ -61,11 +60,25 @@ export const Revenus: React.FC = () => {
     .filter(p => p.statut === 'Impayé')
     .reduce((s, p) => s + p.montantTTC, 0);
 
-  const caAnnuelHT = prestations
-    .filter(p => p.statut === 'Payé' && p.dateEmission >= '2026-01-01')
-    .reduce((s, p) => s + p.montantHT, 0);
+  const caAnnuelHT = history2026.reduce((s: number, m: any) => s + m.ca, 0);
 
-  const filtered = prestations
+  // Merge Manual Invoices with Real Paid Transactions
+  const realPaidTransactions: Prestation[] = (recentTransactions || [])
+    .filter(tx => tx.amount > 0)
+    .map(tx => ({
+      id: tx.id,
+      client: tx.name,
+      description: 'Paiement reçu (Qonto)',
+      montantHT: tx.amount,
+      tva: 0, // Simplified
+      montantTTC: tx.amount,
+      dateEmission: new Date(tx.date.split('/').reverse().join('-')).toISOString().split('T')[0],
+      dateEcheance: new Date(tx.date.split('/').reverse().join('-')).toISOString().split('T')[0],
+      statut: 'Payé',
+      source: 'qonto'
+    }));
+
+  const allFiltered = [...prestations, ...realPaidTransactions]
     .filter(p => filterMois === 'all' || p.dateEmission.startsWith(filterMois))
     .filter(p => filterStatut === 'all' || p.statut === filterStatut)
     .sort((a, b) => b.dateEmission.localeCompare(a.dateEmission));
@@ -168,7 +181,7 @@ export const Revenus: React.FC = () => {
 
       {/* TABLEAU */}
       <div className="bg-card border border-[#2A2A2A] rounded-3xl overflow-hidden">
-        {filtered.length === 0 ? (
+        {allFiltered.length === 0 ? (
           <div className="p-12 text-center text-muted">Aucune prestation pour ce filtre.</div>
         ) : (
           <div className="overflow-x-auto">
@@ -185,7 +198,7 @@ export const Revenus: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1A1A1A]">
-                {filtered.map(p => {
+                {allFiltered.map(p => {
                   const sc = STATUS_CONFIG[p.statut];
                   return (
                     <tr key={p.id} className="hover:bg-[#1A1A1A]/50 transition-colors">

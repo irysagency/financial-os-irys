@@ -106,6 +106,24 @@ export interface PnlMonthData {
 export type AbonnementFrequence = 'Mensuel' | 'Annuel';
 export type AbonnementStatut = 'Actif' | 'Pausé' | 'Annulé';
 
+export interface PnlSummary {
+  history: {
+    mois: string;
+    label: string;
+    ca: number;
+    charges: number;
+    resultat: number;
+    fraisBancaires: number;
+    hasData: boolean;
+  }[];
+  clientMetrics: {
+    count: number;
+    panierMoyen: number;
+    ltv: number;
+    avgLifetime: number;
+  };
+}
+
 export interface AbonnementItem {
   id: string;
   nom: string;

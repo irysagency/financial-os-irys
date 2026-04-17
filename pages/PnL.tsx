@@ -5,7 +5,7 @@ import {
   ComposedChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
 } from 'recharts';
-import { MONTHLY_PNL, QONTO_PRESTATIONS } from '../constants/data';
+import { useApp } from '../context/AppContext';
 
 /* ── helpers ─────────────────────────────────────────────────── */
 
@@ -33,6 +33,8 @@ const FORECAST_MONTHS = [
 
 export const PnL: React.FC = () => {
 
+  const { pnl } = useApp();
+  
   /* state */
   const [objCA, setObjCA] = useState<number>(() =>
     parseInt(localStorage.getItem('irys_objectif_ca_annuel') ?? '60000') || 60000
@@ -56,39 +58,44 @@ export const PnL: React.FC = () => {
   useEffect(() => { localStorage.setItem('irys_objectif_ca_annuel',      String(objCA));       }, [objCA]);
   useEffect(() => { localStorage.setItem('irys_objectif_resultat_annuel', String(objResultat)); }, [objResultat]);
   useEffect(() => { localStorage.setItem('irys_previsions', JSON.stringify(previsions));        }, [previsions]);
-
+  
   /* ── computed metrics ────────────────────────────────────────── */
+  
+  // Real History from API
+  const history = useMemo(() => {
+    if (!pnl?.history) return [];
+    return pnl.history.map((m: any) => ({
+      mois: m.mois,
+      label: m.label,
+      caHT: m.ca,
+      totalChargesHT: m.charges,
+      fraisBanc: m.fraisBancaires,
+      resultatNet: m.resultat
+    }));
+  }, [pnl]);
 
-  const mois2026     = MONTHLY_PNL.filter(m => m.mois >= '2026-01');
+  const mois2026     = history.filter(m => m.mois >= '2026-01');
   const ytdCA        = mois2026.reduce((s, m) => s + m.caHT,       0);
   const ytdResultat  = mois2026.reduce((s, m) => s + m.resultatNet, 0);
 
-  /* averages on Jan-Mar 2026 (complete months) */
-  const complete = MONTHLY_PNL.filter(m => m.mois >= '2026-01' && m.mois <= '2026-03');
-  const avgCaHT       = complete.reduce((s, m) => s + m.caHT,            0) / complete.length;
-  const avgChargesHT  = complete.reduce((s, m) => s + m.totalChargesHT,  0) / complete.length;
-  const avgFraisBanc  = complete.reduce((s, m) => s + m.fraisBanc,       0) / complete.length;
-  const avgResultatNet = complete.reduce((s, m) => s + m.resultatNet,    0) / complete.length;
+  /* averages on complete months (excluding current partial month if needed) */
+  // Let's take the last 3 months with data as "complete" average
+  const complete = history.filter(m => m.caHT > 0).slice(-4, -1); 
+  const currentComplete = complete.length > 0 ? complete : history.filter(m => m.caHT > 0).slice(-3);
+  
+  const avgCaHT       = currentComplete.length ? currentComplete.reduce((s, m) => s + m.caHT,            0) / currentComplete.length : 0;
+  const avgChargesHT  = currentComplete.length ? currentComplete.reduce((s, m) => s + m.totalChargesHT,  0) / currentComplete.length : 0;
+  const avgFraisBanc  = currentComplete.length ? currentComplete.reduce((s, m) => s + m.fraisBanc,       0) / currentComplete.length : 0;
+  const avgResultatNet = currentComplete.length ? currentComplete.reduce((s, m) => s + m.resultatNet,    0) / currentComplete.length : 0;
 
   const objCaMensuel      = Math.round(objCA / 12);
   const objResultatMensuel = Math.round(objResultat / 12);
 
-  /* client KPIs */
-  const paid         = QONTO_PRESTATIONS.filter(p => p.statut === 'Payé');
-  const uniqueClients = [...new Set(paid.map(p => p.client))];
-  const panierMoyen  = uniqueClients.length
-    ? paid.reduce((s, p) => s + p.montantHT, 0) / uniqueClients.length
-    : 0;
-  const clientMonths: Record<string, Set<string>> = {};
-  paid.forEach(p => {
-    const mk = p.dateEmission.substring(0, 7);
-    if (!clientMonths[p.client]) clientMonths[p.client] = new Set();
-    clientMonths[p.client].add(mk);
-  });
-  const avgDureeVie = uniqueClients.length
-    ? uniqueClients.reduce((s, c) => s + (clientMonths[c]?.size ?? 1), 0) / uniqueClients.length
-    : 0;
-  const ltv = panierMoyen * avgDureeVie;
+  /* client KPIs from API */
+  const panierMoyen  = pnl?.clientMetrics?.panierMoyen ?? 0;
+  const avgDureeVie  = pnl?.clientMetrics?.avgLifetime ?? 0;
+  const ltv          = pnl?.clientMetrics?.ltv ?? 0;
+  const uniqueClientsCount = pnl?.clientMetrics?.count ?? 0;
 
   /* net benefit */
   const apresIS         = avgResultatNet * (1 - IS_RATE);
@@ -97,9 +104,10 @@ export const PnL: React.FC = () => {
   /* ── chart data ──────────────────────────────────────────────── */
 
   const allChartData = useMemo(() => {
-    const lastIdx = MONTHLY_PNL.length - 1;
+    if (history.length === 0) return [];
+    const lastIdx = history.length - 1;
 
-    const realData = MONTHLY_PNL.map((m, i) => ({
+    const realData = history.map((m, i) => ({
       label:        m.label,
       mois:         m.mois,
       caHT:         m.caHT,
@@ -129,7 +137,7 @@ export const PnL: React.FC = () => {
     });
 
     return [...realData, ...forecastData];
-  }, [previsions, avgCaHT, avgChargesHT, avgFraisBanc]);
+  }, [history, previsions, avgCaHT, avgChargesHT, avgFraisBanc]);
 
   const chartData = useMemo(() => {
     const realOnly = allChartData.filter(d => d.isReal);
@@ -138,7 +146,7 @@ export const PnL: React.FC = () => {
     return allChartData;
   }, [allChartData, filterPeriod]);
 
-  const lastRealLabel = MONTHLY_PNL[MONTHLY_PNL.length - 1]?.label ?? '';
+  const lastRealLabel = history[history.length - 1]?.label ?? '';
 
   /* handlers */
   const handleChartClick = (data: any) => {
@@ -412,7 +420,7 @@ export const PnL: React.FC = () => {
         <div className="bg-card border border-[#2A2A2A] p-6 rounded-3xl">
           <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Panier moyen / client</div>
           <div className="text-3xl font-bold text-[#FF4D00]">{fmtEur(panierMoyen)}</div>
-          <div className="text-xs text-muted mt-2">HT / client actif · {uniqueClients.length} clients</div>
+          <div className="text-xs text-muted mt-2">HT / client actif · {uniqueClientsCount} clients</div>
         </div>
         <div className="bg-card border border-[#2A2A2A] p-6 rounded-3xl">
           <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Durée de vie moyenne</div>
@@ -439,7 +447,7 @@ export const PnL: React.FC = () => {
                 <th className="px-5 py-3 text-left font-medium text-muted sticky left-0 bg-[#1A1A1A] min-w-[140px]">
                   Indicateur
                 </th>
-                {MONTHLY_PNL.map(m => (
+                {history.map(m => (
                   <th key={m.mois}
                     className={`px-4 py-3 text-right font-medium whitespace-nowrap ${
                       m.mois === CURRENT_MONTH ? 'text-[#FF4D00]' : 'text-muted'
@@ -453,7 +461,7 @@ export const PnL: React.FC = () => {
             <tbody className="divide-y divide-[#1A1A1A]">
               <tr className="hover:bg-[#1A1A1A]/30 transition-colors">
                 <td className="px-5 py-3 sticky left-0 bg-inherit font-bold text-white">CA HT</td>
-                {MONTHLY_PNL.map(m => (
+                {history.map(m => (
                   <td key={m.mois}
                     className={`px-4 py-3 text-right font-bold text-[#FF4D00] whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
                   >
@@ -463,7 +471,7 @@ export const PnL: React.FC = () => {
               </tr>
               <tr className="hover:bg-[#1A1A1A]/30 transition-colors">
                 <td className="px-5 py-3 sticky left-0 bg-inherit text-muted">Charges HT</td>
-                {MONTHLY_PNL.map(m => (
+                {history.map(m => (
                   <td key={m.mois}
                     className={`px-4 py-3 text-right text-muted whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
                   >
@@ -473,7 +481,7 @@ export const PnL: React.FC = () => {
               </tr>
               <tr className="hover:bg-[#1A1A1A]/30 transition-colors bg-[#111]">
                 <td className="px-5 py-3 sticky left-0 bg-inherit font-bold text-white">Résultat net</td>
-                {MONTHLY_PNL.map(m => (
+                {history.map(m => (
                   <td key={m.mois}
                     className={`px-4 py-3 text-right font-bold whitespace-nowrap ${m.mois === CURRENT_MONTH ? 'bg-[#FF4D00]/5' : ''}`}
                   >
@@ -485,7 +493,7 @@ export const PnL: React.FC = () => {
               </tr>
               <tr className="hover:bg-[#1A1A1A]/30 transition-colors">
                 <td className="px-5 py-3 sticky left-0 bg-inherit text-muted text-xs">vs objectif</td>
-                {MONTHLY_PNL.map(m => {
+                {history.map(m => {
                   const delta = objCaMensuel > 0 ? ((m.caHT - objCaMensuel) / objCaMensuel) * 100 : 0;
                   return (
                     <td key={m.mois}

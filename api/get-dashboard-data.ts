@@ -67,8 +67,9 @@ export default async function handler(req: any, res: any) {
       totalBalance: 0
     };
 
-    const monthlyData: Record<string, { ca: number, charges: number, resultat: number }> = {};
+    const monthlyData: Record<string, { ca: number, charges: number, resultat: number, fraisBancaires: number }> = {};
     const categoryTotals: Record<string, number> = {};
+    const clientData: Record<string, { total: number, months: Set<string> }> = {};
     let totalExpenseAmount = 0;
 
     (transactions || []).forEach((tx: any) => {
@@ -79,7 +80,7 @@ export default async function handler(req: any, res: any) {
 
       // Initialize monthly aggregation
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { ca: 0, charges: 0, resultat: 0 };
+        monthlyData[monthKey] = { ca: 0, charges: 0, resultat: 0, fraisBancaires: 0 };
       }
 
       const amount = tx.amount;
@@ -95,6 +96,11 @@ export default async function handler(req: any, res: any) {
         monthlyData[monthKey].charges += amount;
         monthlyData[monthKey].resultat -= amount;
 
+        const cat = categorize(tx.label || '');
+        if (cat === 'Frais' || (tx.label || '').toLowerCase().includes('qonto')) {
+          monthlyData[monthKey].fraisBancaires += amount;
+        }
+
         if (txMonth === currentMonth && txYear === currentYear) metrics.current.expenses += amount;
         if (txMonth === prevMonth && txYear === prevYear) metrics.previous.expenses += amount;
 
@@ -102,8 +108,20 @@ export default async function handler(req: any, res: any) {
         const cat = categorize(tx.label || '');
         categoryTotals[cat] = (categoryTotals[cat] || 0) + amount;
         totalExpenseAmount += amount;
+      } else {
+        // CREDIT - Client metrics
+        const clientName = tx.label || 'Client Inconnu';
+        if (!clientData[clientName]) clientData[clientName] = { total: 0, months: new Set() };
+        clientData[clientName].total += amount;
+        clientData[clientName].months.add(monthKey);
       }
     });
+
+    // Client KPIs
+    const uniqueClients = Object.keys(clientData);
+    const clientsCount = uniqueClients.length;
+    const avgPanierMoyen = clientsCount ? Object.values(clientData).reduce((s, c) => s + c.total, 0) / clientsCount : 0;
+    const avgLifetimeMonths = clientsCount ? Object.values(clientData).reduce((s, c) => s + c.months.size, 0) / clientsCount : 0;
 
     // 2. Trends
     const calcTrend = (curr: number, prev: number) => {
@@ -118,19 +136,28 @@ export default async function handler(req: any, res: any) {
       { title: 'Résultat Net', amount: metrics.current.revenue - metrics.current.expenses, trend: calcTrend(metrics.current.revenue - metrics.current.expenses, metrics.previous.revenue - metrics.previous.expenses) }
     ];
 
-    // 3. Chart Data (January to December of Current Year)
+    // 3. Chart Data (Last 12 months)
     const chartData = [];
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(currentYear, i, 1);
-      const key = `${currentYear}-${String(i + 1).padStart(2, '0')}`;
-      const data = monthlyData[key] || { ca: 0, charges: 0, resultat: 0 };
-      chartData.push({
-        name: d.toLocaleDateString('fr-FR', { month: 'short' }),
+    const pnlHistory = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(currentYear, currentMonth - i, 1);
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+      const data = monthlyData[key] || { ca: 0, charges: 0, resultat: 0, fraisBancaires: 0 };
+      
+      const dataPoint = {
+        mois: key,
+        label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
         ca: data.ca,
         charges: data.charges,
         resultat: data.resultat,
+        fraisBancaires: data.fraisBancaires,
         hasData: !!monthlyData[key]
-      });
+      };
+      
+      chartData.push(dataPoint);
+      pnlHistory.push(dataPoint);
     }
 
     // 4. Expense Distribution
@@ -181,7 +208,16 @@ export default async function handler(req: any, res: any) {
         type: tx.side === 'credit' ? 'Income' : 'Expense',
         amount: tx.side === 'credit' ? tx.amount : -tx.amount,
         date: new Date(tx.settled_at).toLocaleDateString('fr-FR'),
-      }))
+      })),
+      pnl: {
+        history: pnlHistory,
+        clientMetrics: {
+          count: clientsCount,
+          panierMoyen: avgPanierMoyen,
+          ltv: avgPanierMoyen * avgLifetimeMonths,
+          avgLifetime: avgLifetimeMonths
+        }
+      }
     });
 
   } catch (err: any) {

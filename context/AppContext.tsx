@@ -11,6 +11,7 @@ interface AppState {
   recentTransactions: Transaction[];
   expenseDistribution: any[];
   analyticsData: ChartDataPoint[];
+  pnl: any | null;
   projects: Project[];
   clients: Client[];
   currentOrg: Organization | null;
@@ -31,6 +32,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [expenseDistribution, setExpenseDistribution] = useState<any[]>([]);
   const [analyticsData, setAnalyticsData] = useState<ChartDataPoint[]>([]);
+  const [pnl, setPnl] = useState<any | null>(null);
   
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -51,6 +53,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setSubscriptions(dashboard.subscriptions || []);
         setRecentTransactions(dashboard.recentTransactions || []);
         setExpenseDistribution(dashboard.expenseDistribution || []);
+        setPnl(dashboard.pnl || null);
       } else {
         console.error('Failed to fetch real dashboard data, falling back to mock');
         const dashboard = await mockDb.getDashboardData();
@@ -98,6 +101,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       recentTransactions,
       expenseDistribution,
       analyticsData,
+      pnl,
       projects,
       clients,
       currentOrg,
