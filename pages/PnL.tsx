@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Edit2, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ComposedChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -36,21 +36,22 @@ export const PnL: React.FC = () => {
   const [objResultat, setObjResultat] = useState<number>(() =>
     parseInt(localStorage.getItem('irys_objectif_resultat_annuel') ?? '42000') || 42000
   );
-  const [previsions, setPrevisions] = useState<Record<string, number>>(() => {
-    try { return JSON.parse(localStorage.getItem('irys_previsions') ?? '{}'); }
-    catch { return {}; }
-  });
   const [modalCA,       setModalCA]       = useState(false);
   const [modalResultat, setModalResultat] = useState(false);
   const [draftCA,       setDraftCA]       = useState(objCA);
   const [draftResultat, setDraftResultat] = useState(objResultat);
-  const [editingMonth,  setEditingMonth]  = useState<string | null>(null);
-  const [forecastDraft, setForecastDraft] = useState('');
 
   /* persist */
   useEffect(() => { localStorage.setItem('irys_objectif_ca_annuel',      String(objCA));       }, [objCA]);
   useEffect(() => { localStorage.setItem('irys_objectif_resultat_annuel', String(objResultat)); }, [objResultat]);
-  useEffect(() => { localStorage.setItem('irys_previsions', JSON.stringify(previsions));        }, [previsions]);
+
+  /* ── local prestations from Revenus page ─────────────────────── */
+  const localPrestations = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('irys_prestations');
+      return raw ? (JSON.parse(raw) as Array<{ montantHT: number; dateEmission: string; statut: string }>) : [];
+    } catch { return []; }
+  }, []);
 
   /* ── real history from API ───────────────────────────────────── */
 
@@ -106,15 +107,6 @@ export const PnL: React.FC = () => {
   const ytdCA       = moisYear.reduce((s, m) => s + m.caHT,       0);
   const ytdResultat = moisYear.reduce((s, m) => s + m.resultatNet, 0);
 
-  /* ── forecast months (future months of current year only) ────── */
-
-  const forecastMonths = useMemo(() =>
-    selectedYear === CURRENT_YEAR_ACTUAL
-      ? yearMonths.filter(m => m.mois > CURRENT_MONTH)
-      : [],
-    [yearMonths, selectedYear]
-  );
-
   /* ── averages on last 3 complete months ──────────────────────── */
 
   const complete = history.filter(m => m.caHT > 0).slice(-4, -1);
@@ -140,15 +132,44 @@ export const PnL: React.FC = () => {
   const apresIS         = avgResultatNet * (1 - IS_RATE);
   const apresDividendes = apresIS        * (1 - PFU_RATE);
 
-  /* ── chart data — full year (real + projection) ──────────────── */
+  /* ── prestations par mois (pour injecter dans le prévisionnel) ── */
+
+  const prestationsByMois = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of localPrestations) {
+      if (!p.dateEmission || p.statut === 'Impayé') continue;
+      const mois = p.dateEmission.slice(0, 7); // YYYY-MM
+      map[mois] = (map[mois] ?? 0) + (p.montantHT ?? 0);
+    }
+    return map;
+  }, [localPrestations]);
+
+  /* ── projection annuelle complète (réel + mois futurs estimés) ── */
+
+  const projectedYearCA = useMemo(() => {
+    if (selectedYear !== CURRENT_YEAR_ACTUAL) return ytdCA;
+    const futureMois = yearMonths.filter(({ mois }) => mois > CURRENT_MONTH);
+    const futurePrestations = futureMois.reduce(
+      (s, { mois }) => s + (prestationsByMois[mois] ?? 0), 0
+    );
+    return ytdCA + avgCaHT * futureMois.length + futurePrestations;
+  }, [ytdCA, avgCaHT, yearMonths, prestationsByMois, selectedYear]);
+
+  const projectedYearResultat = useMemo(() => {
+    if (selectedYear !== CURRENT_YEAR_ACTUAL) return ytdResultat;
+    const futureMoisCount = yearMonths.filter(({ mois }) => mois > CURRENT_MONTH).length;
+    return ytdResultat + avgResultatNet * futureMoisCount;
+  }, [ytdResultat, avgResultatNet, yearMonths, selectedYear]);
+
+  /* ── chart data — full year (real + projection auto) ─────────── */
 
   const chartData = useMemo(() => {
     const isCurrentYear = selectedYear === CURRENT_YEAR_ACTUAL;
 
     return yearMonths.map(({ mois, label }) => {
-      const real             = historyByMois[mois];
-      const isFuture         = mois > CURRENT_MONTH;
-      const isConnectionPt   = mois === CURRENT_MONTH && isCurrentYear;
+      const real           = historyByMois[mois];
+      const isFuture       = mois > CURRENT_MONTH;
+      const isConnectionPt = mois === CURRENT_MONTH && isCurrentYear;
 
       /* real data point */
       if (real && !isFuture) {
@@ -157,17 +178,18 @@ export const PnL: React.FC = () => {
           caHT:         real.caHT,
           chargesHT:    real.totalChargesHT,
           resultat:     real.resultatNet,
-          /* connection point: last real month duplicated into forecast series */
           caHT_fc:      isConnectionPt ? real.caHT           : null,
           chargesHT_fc: isConnectionPt ? real.totalChargesHT : null,
-          resultat_fc:  isConnectionPt ? real.resultatNet     : null,
+          resultat_fc:  isConnectionPt ? real.resultatNet    : null,
           isReal: true,
+          prestationsExtra: 0,
         };
       }
 
-      /* forecast point (future months of current year) */
+      /* forecast point — automatic: moyenne + prestations planifiées */
       if (isFuture && isCurrentYear) {
-        const fcCA  = previsions[mois] ?? avgCaHT;
+        const extra = prestationsByMois[mois] ?? 0;
+        const fcCA  = avgCaHT + extra;
         const fcRes = fcCA - avgChargesHT - avgFraisBanc;
         return {
           label, mois,
@@ -176,6 +198,7 @@ export const PnL: React.FC = () => {
           chargesHT_fc: avgChargesHT,
           resultat_fc:  fcRes,
           isReal: false,
+          prestationsExtra: extra,
         };
       }
 
@@ -187,30 +210,14 @@ export const PnL: React.FC = () => {
         resultat:  real?.resultatNet    ?? 0,
         caHT_fc: null, chargesHT_fc: null, resultat_fc: null,
         isReal: true,
+        prestationsExtra: 0,
       };
     });
-  }, [yearMonths, historyByMois, previsions, avgCaHT, avgChargesHT, avgFraisBanc, selectedYear]);
+  }, [yearMonths, historyByMois, prestationsByMois, avgCaHT, avgChargesHT, avgFraisBanc, selectedYear]);
 
   const lastRealLabel = [...moisYear]
     .filter(m => m.mois <= CURRENT_MONTH)
     .pop()?.label ?? '';
-
-  /* ── handlers ────────────────────────────────────────────────── */
-
-  const handleChartClick = (data: any) => {
-    if (!data?.activePayload?.length || selectedYear !== CURRENT_YEAR_ACTUAL) return;
-    const pt = data.activePayload[0]?.payload;
-    if (pt && !pt.isReal) {
-      setEditingMonth(pt.mois);
-      setForecastDraft(String(Math.round(previsions[pt.mois] ?? avgCaHT)));
-    }
-  };
-
-  const saveForecast = () => {
-    if (!editingMonth) return;
-    setPrevisions(p => ({ ...p, [editingMonth]: parseFloat(forecastDraft) || 0 }));
-    setEditingMonth(null);
-  };
 
   const isCurrentYear = selectedYear === CURRENT_YEAR_ACTUAL;
 
@@ -221,36 +228,26 @@ export const PnL: React.FC = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">P&L — Compte de résultat</h1>
 
-        {/* Year selector */}
-        <div className="flex items-center gap-1 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-1">
+        {/* Year selector — flèches + année uniquement */}
+        <div className="flex items-center gap-2 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-3 py-1.5">
           <button
             onClick={() => {
               const idx = availableYears.indexOf(selectedYear);
               if (idx > 0) setSelectedYear(availableYears[idx - 1]);
             }}
             disabled={availableYears.indexOf(selectedYear) === 0}
-            className="p-1.5 rounded-lg text-muted hover:text-white disabled:opacity-30 transition-colors"
+            className="text-muted hover:text-white disabled:opacity-30 transition-colors"
           >
             <ChevronLeft size={16} />
           </button>
-          {availableYears.map(y => (
-            <button
-              key={y}
-              onClick={() => setSelectedYear(y)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${
-                selectedYear === y ? 'bg-[#FF4D00] text-white' : 'text-muted hover:text-white'
-              }`}
-            >
-              {y}
-            </button>
-          ))}
+          <span className="text-sm font-bold text-white w-10 text-center">{selectedYear}</span>
           <button
             onClick={() => {
               const idx = availableYears.indexOf(selectedYear);
               if (idx < availableYears.length - 1) setSelectedYear(availableYears[idx + 1]);
             }}
             disabled={availableYears.indexOf(selectedYear) === availableYears.length - 1}
-            className="p-1.5 rounded-lg text-muted hover:text-white disabled:opacity-30 transition-colors"
+            className="text-muted hover:text-white disabled:opacity-30 transition-colors"
           >
             <ChevronRight size={16} />
           </button>
@@ -268,9 +265,14 @@ export const PnL: React.FC = () => {
                 Objectif CA annuel {selectedYear}
               </div>
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-3xl font-bold text-[#FF4D00]">{fmtEur(ytdCA)}</span>
+                <span className="text-3xl font-bold text-[#FF4D00]">{fmtEur(projectedYearCA)}</span>
                 <span className="text-muted text-sm">/ {fmtEur(objCA)}</span>
               </div>
+              {isCurrentYear && ytdCA < projectedYearCA && (
+                <div className="text-xs text-muted mt-1">
+                  Réalisé : {fmtEur(ytdCA)} · Projeté fin {selectedYear}
+                </div>
+              )}
             </div>
             <button
               onClick={() => { setDraftCA(objCA); setModalCA(true); }}
@@ -280,15 +282,17 @@ export const PnL: React.FC = () => {
             </button>
           </div>
           <div className="h-2 bg-[#2A2A2A] rounded-full overflow-hidden mb-2">
-            <div
-              className="h-full bg-[#FF4D00] rounded-full transition-all duration-700"
-              style={{ width: `${Math.min(100, (ytdCA / objCA) * 100)}%` }}
-            />
+            <div className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
+              style={{ width: `${Math.min(100, (projectedYearCA / objCA) * 100)}%`, background: '#FF4D00' }}>
+              {isCurrentYear && (
+                <div className="absolute inset-0 bg-[#FF4D00]/40" style={{ left: `${Math.min(100, (ytdCA / projectedYearCA) * 100)}%` }} />
+              )}
+            </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-muted">→ objectif mensuel : {fmtEur(objCaMensuel)}/mois</span>
             <span className="text-xs font-bold text-[#FF4D00]">
-              {Math.min(100, Math.round((ytdCA / objCA) * 100))}%
+              {Math.min(100, Math.round((projectedYearCA / objCA) * 100))}%
             </span>
           </div>
         </div>
@@ -301,9 +305,14 @@ export const PnL: React.FC = () => {
                 Objectif résultat net {selectedYear}
               </div>
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-3xl font-bold text-[#4ade80]">{fmtEur(ytdResultat)}</span>
+                <span className="text-3xl font-bold text-[#4ade80]">{fmtEur(projectedYearResultat)}</span>
                 <span className="text-muted text-sm">/ {fmtEur(objResultat)}</span>
               </div>
+              {isCurrentYear && ytdResultat < projectedYearResultat && (
+                <div className="text-xs text-muted mt-1">
+                  Réalisé : {fmtEur(ytdResultat)} · Projeté fin {selectedYear}
+                </div>
+              )}
             </div>
             <button
               onClick={() => { setDraftResultat(objResultat); setModalResultat(true); }}
@@ -313,15 +322,17 @@ export const PnL: React.FC = () => {
             </button>
           </div>
           <div className="h-2 bg-[#2A2A2A] rounded-full overflow-hidden mb-2">
-            <div
-              className="h-full bg-[#4ade80] rounded-full transition-all duration-700"
-              style={{ width: `${Math.min(100, (ytdResultat / objResultat) * 100)}%` }}
-            />
+            <div className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
+              style={{ width: `${Math.min(100, (projectedYearResultat / objResultat) * 100)}%`, background: '#4ade80' }}>
+              {isCurrentYear && (
+                <div className="absolute inset-0 bg-[#4ade80]/40" style={{ left: `${Math.min(100, (ytdResultat / projectedYearResultat) * 100)}%` }} />
+              )}
+            </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-muted">→ objectif mensuel : {fmtEur(objResultatMensuel)}/mois</span>
             <span className="text-xs font-bold text-[#4ade80]">
-              {Math.min(100, Math.round((ytdResultat / objResultat) * 100))}%
+              {Math.min(100, Math.round((projectedYearResultat / objResultat) * 100))}%
             </span>
           </div>
         </div>
@@ -335,7 +346,7 @@ export const PnL: React.FC = () => {
             <h2 className="font-bold">Évolution & Projection CA — {selectedYear}</h2>
             <p className="text-xs text-muted mt-0.5">
               {isCurrentYear
-                ? 'Réel (trait plein) · Prévisionnel (pointillé) — cliquer sur un mois futur pour saisir un CA manuel'
+                ? 'Réel (trait plein) · Prévisionnel automatique (pointillé) — moyenne glissante + prestations planifiées'
                 : `Vue annuelle ${selectedYear}`}
             </p>
           </div>
@@ -352,8 +363,6 @@ export const PnL: React.FC = () => {
             <ComposedChart
               data={chartData}
               margin={{ top: 10, right: 70, left: -10, bottom: 0 }}
-              onClick={handleChartClick}
-              style={{ cursor: isCurrentYear ? 'pointer' : 'default' }}
             >
               <defs>
                 <linearGradient id="gCA" x1="0" y1="0" x2="0" y2="1">
@@ -439,52 +448,21 @@ export const PnL: React.FC = () => {
           <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-[#4ade80]" /> Résultat net</div>
         </div>
 
-        {/* Panneau édition mois prévisionnel */}
-        {isCurrentYear && editingMonth && (
-          <div className="mt-4 pt-4 border-t border-[#2A2A2A] flex flex-wrap items-center gap-3">
-            <span className="text-xs text-muted">
-              CA prévisionnel —{' '}
-              <span className="text-white font-medium">
-                {forecastMonths.find(f => f.mois === editingMonth)?.label}
-              </span>
-            </span>
-            <input
-              type="number"
-              value={forecastDraft}
-              onChange={e => setForecastDraft(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && saveForecast()}
-              autoFocus
-              className="bg-[#1A1A1A] border border-[#FF4D00] rounded-xl px-3 py-1.5 text-white text-sm w-36 focus:outline-none"
-            />
-            <span className="text-xs text-muted">€ HT</span>
-            <button onClick={saveForecast} className="flex items-center gap-1 text-xs text-[#4ade80] hover:opacity-80">
-              <Check size={14} /> Enregistrer
-            </button>
-            <button onClick={() => setEditingMonth(null)} className="flex items-center gap-1 text-xs text-muted hover:text-white">
-              <X size={14} /> Annuler
-            </button>
-          </div>
-        )}
-
-        {/* Overrides en cours */}
-        {isCurrentYear && Object.keys(previsions).length > 0 && (
+        {/* Prestations planifiées actives sur les mois futurs */}
+        {isCurrentYear && Object.keys(prestationsByMois).some(m => m > CURRENT_MONTH) && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {Object.entries(previsions).map(([mois, val]) => {
-              const fm = forecastMonths.find(f => f.mois === mois);
-              if (!fm) return null;
-              return (
-                <div key={mois} className="flex items-center gap-1.5 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-2.5 py-1 text-xs">
-                  <span className="text-muted">{fm.label} :</span>
-                  <span className="font-bold text-[#FF4D00]">{fmtEur(val as number)}</span>
-                  <button
-                    onClick={() => setPrevisions(p => { const n = { ...p }; delete n[mois]; return n; })}
-                    className="text-muted hover:text-[#FF4D00] ml-1 transition-colors"
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              );
-            })}
+            {Object.entries(prestationsByMois)
+              .filter(([mois]) => mois > CURRENT_MONTH)
+              .map(([mois, val]) => {
+                const label = new Date(mois + '-01').toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+                return (
+                  <div key={mois} className="flex items-center gap-1.5 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg px-2.5 py-1 text-xs">
+                    <span className="text-muted">{label} :</span>
+                    <span className="font-bold text-[#FF4D00]">+{fmtEur(val as number)}</span>
+                    <span className="text-muted">planifié</span>
+                  </div>
+                );
+              })}
           </div>
         )}
       </div>
