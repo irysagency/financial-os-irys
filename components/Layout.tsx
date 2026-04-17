@@ -45,7 +45,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
         {isActive && (
           <motion.div 
             layoutId="activeNav"
-            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#FF4D00] rounded-r-full"
+            className="absolute left-0 inset-y-3 w-1 bg-[#FF4D00] rounded-r-full shadow-[0_0_10px_rgba(255,77,0,0.5)]"
           />
         )}
         
