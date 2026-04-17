@@ -19,7 +19,7 @@ const AppContent = () => {
 
   const renderPage = () => {
     switch (activePage) {
-      case 'dashboard':    return <Dashboard />;
+      case 'dashboard':    return <Dashboard onNavigate={setActivePage} />;
       case 'wallet':       return <Analytics />;
       case 'transactions': return <Transactions />;
       case 'transfer':     return <Transfer />;

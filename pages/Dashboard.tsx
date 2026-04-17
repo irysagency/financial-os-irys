@@ -14,7 +14,11 @@ const fmtEur = (n: number) =>
     minimumFractionDigits: 2,
   }).format(n);
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  onNavigate?: (page: string) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const { kpis, recentTransactions, expenseDistribution, cashFlow, subscriptions, isLoading, refreshData } = useApp();
 
   const [showCA,       setShowCA]       = useState(true);
@@ -309,7 +313,6 @@ export const Dashboard: React.FC = () => {
             <h3 className="font-bold">Dernières transactions</h3>
           </div>
 
-          <div className="space-y-4">
             {recentTransactions.map(tx => (
               <div
                 key={tx.id}
@@ -337,6 +340,13 @@ export const Dashboard: React.FC = () => {
               </div>
             ))}
           </div>
+
+          <button
+            onClick={() => onNavigate?.('transactions')}
+            className="w-full mt-6 py-3 rounded-2xl border border-[#2A2A2A] text-sm font-medium text-muted hover:text-white hover:border-[#FF4D00]/50 hover:bg-[#FF4D00]/5 transition-all active:scale-[0.98]"
+          >
+            Voir toutes les transactions
+          </button>
         </div>
       </div>
     </div>
