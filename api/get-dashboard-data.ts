@@ -134,17 +134,13 @@ export default async function handler(req: any, res: any) {
       { title: 'Résultat Net', amount: metrics.current.revenue - metrics.current.expenses, trend: calcTrend(metrics.current.revenue - metrics.current.expenses, metrics.previous.revenue - metrics.previous.expenses) }
     ];
 
-    // 3. Chart Data (Last 12 months)
+    // 3. Chart Data (Current year Jan–Dec) + PnL history (all available months)
     const chartData = [];
-    const pnlHistory = [];
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(currentYear, currentMonth - i, 1);
-      const m = d.getMonth();
-      const y = d.getFullYear();
-      const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+    for (let m = 0; m < 12; m++) {
+      const key = `${currentYear}-${String(m + 1).padStart(2, '0')}`;
       const data = monthlyData[key] || { ca: 0, charges: 0, resultat: 0, fraisBancaires: 0 };
-      
-      const dataPoint = {
+      const d = new Date(currentYear, m, 1);
+      chartData.push({
         mois: key,
         label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
         ca: data.ca,
@@ -152,11 +148,23 @@ export default async function handler(req: any, res: any) {
         resultat: data.resultat,
         fraisBancaires: data.fraisBancaires,
         hasData: !!monthlyData[key]
-      };
-      
-      chartData.push(dataPoint);
-      pnlHistory.push(dataPoint);
+      });
     }
+
+    const pnlHistory = Object.keys(monthlyData).sort().map(key => {
+      const data = monthlyData[key];
+      const [y, m] = key.split('-').map(Number);
+      const d = new Date(y, m - 1, 1);
+      return {
+        mois: key,
+        label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+        ca: data.ca,
+        charges: data.charges,
+        resultat: data.resultat,
+        fraisBancaires: data.fraisBancaires,
+        hasData: true
+      };
+    });
 
     // 4. Expense Distribution
     const expenseDistribution = Object.entries(categoryTotals).map(([name, value]) => ({
@@ -168,31 +176,41 @@ export default async function handler(req: any, res: any) {
     // 5. Subscription Detection (Improved with strict Whitelist)
     const SUBSCRIPTION_WHITELIST = ['Notion', 'Metricool', 'Squarespace', 'Claude', 'Anthropic', 'Google', 'Adobe', 'Figma', 'Slack', 'ChatGPT', 'Stripe'];
     
-    const labelCounts: Record<string, { count: number, amounts: number[], lastDate: string, officialName: string }> = {};
+    // Transactions are ordered DESC (newest first), so first encounter = most recent
+    const labelCounts: Record<string, { count: number, amounts: number[], mostRecentDate: string, officialName: string }> = {};
     (transactions || []).forEach(tx => {
       if (tx.side === 'debit') {
         const label = tx.label || '';
         const matchedProvider = SUBSCRIPTION_WHITELIST.find(p => label.toLowerCase().includes(p.toLowerCase()));
-        
+
         if (matchedProvider) {
-          const entry = labelCounts[matchedProvider] || { count: 0, amounts: [], lastDate: '', officialName: matchedProvider };
+          if (!labelCounts[matchedProvider]) {
+            // First encounter = most recent transaction (DESC order)
+            labelCounts[matchedProvider] = { count: 0, amounts: [], mostRecentDate: tx.settled_at, officialName: matchedProvider };
+          }
+          const entry = labelCounts[matchedProvider];
           entry.count++;
           entry.amounts.push(tx.amount);
-          entry.lastDate = tx.settled_at;
-          labelCounts[matchedProvider] = entry;
         }
       }
     });
 
     const subscriptions = Object.values(labelCounts)
-      .map((data) => ({
-        id: data.officialName,
-        nom: data.officialName,
-        montantHT: data.amounts[0],
-        frequence: 'Mensuel',
-        statut: 'Actif',
-        prochaineDate: data.lastDate
-      }))
+      .map((data) => {
+        // Compute next future payment date: most recent + 1 month, advance until in future
+        const lastPaid = new Date(data.mostRecentDate);
+        const next = new Date(lastPaid.getFullYear(), lastPaid.getMonth() + 1, lastPaid.getDate());
+        const nowDate = new Date();
+        while (next < nowDate) next.setMonth(next.getMonth() + 1);
+        return {
+          id: data.officialName,
+          nom: data.officialName,
+          montantHT: data.amounts[0], // Most recent amount (DESC order)
+          frequence: 'Mensuel',
+          statut: 'Actif',
+          prochaineDate: next.toISOString().split('T')[0]
+        };
+      })
       .sort((a, b) => b.montantHT - a.montantHT);
 
     return res.status(200).json({

@@ -56,11 +56,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             if (dashboard && Array.isArray(dashboard.kpis)) {
               setKpis(dashboard.kpis || []);
               setCashFlow(dashboard.chartData || []);
-              setSubscriptions(dashboard.subscriptions || []);
+              const apiSubs: AbonnementItem[] = dashboard.subscriptions || [];
+              setSubscriptions(apiSubs);
               setRecentTransactions(dashboard.recentTransactions || []);
               setExpenseDistribution(dashboard.expenseDistribution || []);
               setPnl(dashboard.pnl || null);
               usedApi = true;
+              // Sync API-detected subscriptions into localStorage so Abonnements page stays in sync
+              try {
+                const stored: AbonnementItem[] = JSON.parse(localStorage.getItem('irys_abonnements') || '[]');
+                const merged = [...stored];
+                for (const apiSub of apiSubs) {
+                  const apiKey = apiSub.nom.toLowerCase().replace(/[^a-z]/g, '');
+                  const idx = merged.findIndex(s => {
+                    const sKey = s.nom.toLowerCase().replace(/[^a-z]/g, '');
+                    return sKey.includes(apiKey) || apiKey.includes(sKey);
+                  });
+                  if (idx === -1) {
+                    merged.push(apiSub);
+                  } else {
+                    merged[idx].prochaineDate = apiSub.prochaineDate;
+                  }
+                }
+                localStorage.setItem('irys_abonnements', JSON.stringify(merged));
+              } catch { /* ignore localStorage errors */ }
             }
           } catch (jsonErr) {
             // Body was not JSON (e.g. dev server returned index.html). Fall back.
