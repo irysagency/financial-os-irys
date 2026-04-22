@@ -3,14 +3,17 @@ import { User, Target, Upload, Trash2, ChevronRight } from 'lucide-react';
 
 export const Settings: React.FC = () => {
   const [confirmReset, setConfirmReset] = useState(false);
+  const [resetToast, setResetToast] = useState<string | null>(null);
 
   const handleReset = () => {
     if (confirmReset) {
       localStorage.removeItem('irys_prestations');
-      localStorage.removeItem('irys_objectifs');
+      localStorage.removeItem('irys_objectif_ca_annuel');
+      localStorage.removeItem('irys_objectif_resultat_annuel');
       localStorage.removeItem('irys_abonnements');
       setConfirmReset(false);
-      alert('Données réinitialisées. Rechargez la page.');
+      setResetToast('Données réinitialisées. Rechargez la page pour voir les changements.');
+      setTimeout(() => setResetToast(null), 4000);
     } else {
       setConfirmReset(true);
       setTimeout(() => setConfirmReset(false), 5000);
@@ -46,6 +49,12 @@ export const Settings: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-500 max-w-2xl">
       <h1 className="text-2xl font-bold">Paramètres</h1>
 
+      {resetToast && (
+        <div className="bg-[#1B5E20]/30 border border-[#4CAF50]/30 text-[#4CAF50] px-4 py-3 rounded-xl text-sm font-medium animate-in slide-in-from-top-2">
+          {resetToast}
+        </div>
+      )}
+
       {/* PROFIL */}
       <Section title="Profil" icon={User}>
         <Field label="Nom de l'agence" value="Irys Agency" />
@@ -80,8 +89,8 @@ export const Settings: React.FC = () => {
       {/* RESET */}
       <Section title="Données" icon={Trash2}>
         <p className="text-sm text-muted">
-          Réinitialise les prestations, abonnements et objectifs modifiés manuellement.
-          Les données Qonto importées restent inchangées.
+          Réinitialise les prestations, abonnements et objectifs P&L saisis manuellement.
+          Les données Qonto seront re-synchronisées à la prochaine visite.
         </p>
         <button
           onClick={handleReset}

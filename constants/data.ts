@@ -1,29 +1,30 @@
-import { StatCardData, Subscription, Transaction, ChartDataPoint, Project, Client, Organization, Prestation, PnlMonthData, AbonnementItem, VirementHistorique } from '../types';
+import { StatCardData, Transaction, ChartDataPoint, Prestation, PnlMonthData, AbonnementItem, VirementHistorique } from '../types';
 
 // KPIs mis à jour avec données Qonto (Irys Agency) — au 16/04/2026
 // Monthly = dernier mois complet (Mars 2026). Trend = vs Février 2026.
 export const KPIS: StatCardData[] = [
-  { title: "Solde actuel",        amount: 6378.36,  trend: 0 },
-  { title: "Revenus (Mar 2026)",  amount: 4458.44,  trend: 4.7 },
-  { title: "Dépenses (Mar 2026)", amount: 646.64,   trend: -75.0 },
-  { title: "Épargne (Mar 2026)",  amount: 3811.80,  trend: 127.8 },
+  { title: "Solde Total",     amount: 6378.36,  trend: 0 },
+  { title: "Revenus (Mois)",  amount: 4458.44,  trend: 4.7 },
+  { title: "Dépenses (Mois)", amount: 646.64,   trend: -75.0 },
+  { title: "Résultat Net",    amount: 3811.80,  trend: 127.8 },
 ];
 
-// Cash flow net mensuel 2026 (revenus - dépenses). Source : Qonto export au 16/04/2026.
-// Mai–Déc : pas encore de données (valeur 0).
-export const CASH_FLOW_DATA: ChartDataPoint[] = [
-  { name: 'Jan', value: 166.20 },
-  { name: 'Feb', value: 1673.31 },
-  { name: 'Mar', value: 3811.80 },
-  { name: 'Apr', value: 491.15 }, // Mois en cours (partiel)
-  { name: 'May', value: 0 },
-  { name: 'Jun', value: 0 },
-  { name: 'Jul', value: 0 },
-  { name: 'Aug', value: 0 },
-  { name: 'Sep', value: 0 },
-  { name: 'Oct', value: 0 },
-  { name: 'Nov', value: 0 },
-  { name: 'Dec', value: 0 },
+// Cash flow mensuel 2026 — même shape que l'API /api/get-dashboard-data chartData.
+// Jan–Avr : dérivé de MONTHLY_PNL (charges = totalChargesHT + fraisBanc).
+// Mai–Déc : pas encore de données (hasData:false).
+export const CASH_FLOW_DATA: { mois: string; label: string; ca: number; charges: number; resultat: number; fraisBancaires: number; hasData: boolean }[] = [
+  { mois: '2026-01', label: 'Jan 26', ca: 757.50,  charges: 669.45,  resultat: 88.05,   fraisBancaires: 1.60,  hasData: true },
+  { mois: '2026-02', label: 'Fév 26', ca: 3537.19, charges: 2312.65, resultat: 1224.54, fraisBancaires: 0.77,  hasData: true },
+  { mois: '2026-03', label: 'Mar 26', ca: 3663.33, charges: 172.22,  resultat: 3491.11, fraisBancaires: 2.34,  hasData: true },
+  { mois: '2026-04', label: 'Avr 26', ca: 513.68,  charges: 114.35,  resultat: 399.33,  fraisBancaires: 59.73, hasData: true },
+  { mois: '2026-05', label: 'Mai 26', ca: 0, charges: 0, resultat: 0, fraisBancaires: 0, hasData: false },
+  { mois: '2026-06', label: 'Juin 26', ca: 0, charges: 0, resultat: 0, fraisBancaires: 0, hasData: false },
+  { mois: '2026-07', label: 'Juil 26', ca: 0, charges: 0, resultat: 0, fraisBancaires: 0, hasData: false },
+  { mois: '2026-08', label: 'Août 26', ca: 0, charges: 0, resultat: 0, fraisBancaires: 0, hasData: false },
+  { mois: '2026-09', label: 'Sep 26', ca: 0, charges: 0, resultat: 0, fraisBancaires: 0, hasData: false },
+  { mois: '2026-10', label: 'Oct 26', ca: 0, charges: 0, resultat: 0, fraisBancaires: 0, hasData: false },
+  { mois: '2026-11', label: 'Nov 26', ca: 0, charges: 0, resultat: 0, fraisBancaires: 0, hasData: false },
+  { mois: '2026-12', label: 'Déc 26', ca: 0, charges: 0, resultat: 0, fraisBancaires: 0, hasData: false },
 ];
 
 // Données analytiques mensuelles 2026 (revenus et dépenses bruts). Source : Qonto au 16/04/2026.
@@ -40,27 +41,6 @@ export const ANALYTICS_DATA: ChartDataPoint[] = [
   { name: 'Oct', income: 0,        expense: 0,        value: 0 },
   { name: 'Nov', income: 0,        expense: 0,        value: 0 },
   { name: 'Dec', income: 0,        expense: 0,        value: 0 },
-];
-
-export const SUBSCRIPTIONS: Subscription[] = [
-  { 
-    id: 'sub1', 
-    name: 'Netflix subscription', 
-    amount: 25.00, 
-    frequency: 'Monthly', 
-    category: 'Entertainment', 
-    status: 'Active', 
-    nextPaymentDate: 'Aug 15, 2024' 
-  },
-  { 
-    id: 'sub2', 
-    name: 'Spotify subscription', 
-    amount: 25.00, 
-    frequency: 'Monthly', 
-    category: 'Entertainment', 
-    status: 'Active', 
-    nextPaymentDate: 'Aug 15, 2024' 
-  }
 ];
 
 // 10 dernières transactions Qonto (Irys Agency) — source : export du 16/04/2026.
@@ -85,47 +65,6 @@ export const EXPENSE_DISTRIBUTION = [
   { name: 'Non catégorisé',   value: 10, color: '#FFD700' }, //   440,44 EUR
   { name: 'Frais bancaires',   value: 1, color: '#FF6633' }, //    68,56 EUR
 ];
-
-export const PROJECTS: Project[] = [
-  {
-    id: 'p1',
-    name: 'Website Redesign',
-    clientId: 'c1',
-    status: 'IN_PROGRESS',
-    budget: 5000,
-    expenses: 1200,
-    startDate: '2023-10-01'
-  },
-  {
-    id: 'p2',
-    name: 'Mobile App Development',
-    clientId: 'c2',
-    status: 'SIGNED',
-    budget: 15000,
-    expenses: 500,
-    startDate: '2023-11-15'
-  },
-  {
-    id: 'p3',
-    name: 'Marketing Campaign',
-    clientId: 'c1',
-    status: 'COMPLETED',
-    budget: 8000,
-    expenses: 2000,
-    startDate: '2023-08-01'
-  }
-];
-
-export const CLIENTS: Client[] = [
-  { id: 'c1', name: 'Acme Corp' },
-  { id: 'c2', name: 'Globex Inc.' }
-];
-
-export const CURRENT_ORG: Organization = {
-  id: 'o1',
-  name: 'Irys Agency',
-  currency: 'EUR'
-};
 
 // ------------------------------------------------------------------
 // DONNÉES QONTO — Prestations (CA encaissé)

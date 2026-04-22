@@ -21,6 +21,7 @@ const EMPTY_FORM = {
   montantHT: '',
   frequence: 'Mensuel' as AbonnementFrequence,
   prochaineDate: '',
+  statut: 'Actif' as AbonnementStatut,
 };
 
 export const Abonnements: React.FC = () => {
@@ -66,7 +67,7 @@ export const Abonnements: React.FC = () => {
       montantHT: parseFloat(form.montantHT) || 0,
       frequence: form.frequence,
       prochaineDate: form.prochaineDate,
-      statut: 'Actif',
+      statut: form.statut,
     };
     setAbonnements(prev => [newAb, ...prev]);
     setIsAddOpen(false);
@@ -253,6 +254,25 @@ export const Abonnements: React.FC = () => {
                       <option>Mensuel</option>
                       <option>Annuel</option>
                     </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-muted uppercase tracking-wider">Statut</label>
+                    <div className="flex gap-2">
+                      {ALL_STATUTS.map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, statut: s }))}
+                          className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
+                            form.statut === s
+                              ? `${STATUT_CONFIG[s].bg} ${STATUT_CONFIG[s].text} border-transparent ring-1 ring-current`
+                              : 'bg-[#1A1A1A] text-muted border-[#2A2A2A] hover:text-white'
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <button
                     type="submit"

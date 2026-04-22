@@ -20,10 +20,9 @@ interface LayoutProps {
   children: React.ReactNode;
   activePage: string;
   onNavigate: (page: string) => void;
-  onOpenModal: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate, onOpenModal }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => {
   const { user } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
@@ -154,15 +153,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate
               <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#FF4D00] rounded-full border-2 border-[#1A1A1A]"></span>
             </button>
 
-            <button className="hidden md:block px-5 py-2.5 rounded-full border border-[#2A2A2A] text-sm font-medium hover:bg-[#1A1A1A] transition-colors">
-              Manage
-            </button>
-
-            <button 
-              onClick={onOpenModal}
+            <button
+              onClick={() => onNavigate('revenus')}
               className="px-5 py-2.5 rounded-full bg-[#FF4D00] text-white text-sm font-bold shadow-[0_4px_14px_rgba(255,77,0,0.4)] hover:shadow-[0_6px_20px_rgba(255,77,0,0.6)] hover:scale-105 active:scale-95 transition-all"
             >
-              + Add Funds
+              + Nouvelle prestation
             </button>
           </div>
         </header>

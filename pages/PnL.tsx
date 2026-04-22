@@ -138,7 +138,8 @@ export const PnL: React.FC = () => {
     const map: Record<string, number> = {};
     for (const p of localPrestations) {
       const dateKey = p.dateDebut || p.dateEmission;
-      if (!dateKey || p.statut === 'Impayé') continue;
+      if (!dateKey) continue;
+      if (p.statut === 'Impayé') continue;
       const mois = dateKey.slice(0, 7); // YYYY-MM
       map[mois] = (map[mois] ?? 0) + (p.montantHT ?? 0);
     }
@@ -150,10 +151,11 @@ export const PnL: React.FC = () => {
   const projectedYearCA = useMemo(() => {
     if (selectedYear !== CURRENT_YEAR_ACTUAL) return ytdCA;
     const futureMois = yearMonths.filter(({ mois }) => mois > CURRENT_MONTH);
-    const futurePrestations = futureMois.reduce(
-      (s, { mois }) => s + (prestationsByMois[mois] ?? 0), 0
+    const futureTotal = futureMois.reduce(
+      (s, { mois }) => s + (prestationsByMois[mois] ?? avgCaHT),
+      0
     );
-    return ytdCA + avgCaHT * futureMois.length + futurePrestations;
+    return ytdCA + futureTotal;
   }, [ytdCA, avgCaHT, yearMonths, prestationsByMois, selectedYear]);
 
   const projectedYearResultat = useMemo(() => {
@@ -187,11 +189,11 @@ export const PnL: React.FC = () => {
         };
       }
 
-      /* forecast point — automatic: moyenne + prestations planifiées */
+      /* forecast point — automatic: prestation planifiée si existante, sinon moyenne */
       if (isFuture && isCurrentYear) {
-        const extra = prestationsByMois[mois] ?? 0;
-        const fcCA  = avgCaHT + extra;
-        const fcRes = fcCA - avgChargesHT - avgFraisBanc;
+        const planned = prestationsByMois[mois];
+        const fcCA    = planned ?? avgCaHT;
+        const fcRes   = fcCA - avgChargesHT - avgFraisBanc;
         return {
           label, mois,
           caHT: null, chargesHT: null, resultat: null,
@@ -199,7 +201,7 @@ export const PnL: React.FC = () => {
           chargesHT_fc: avgChargesHT,
           resultat_fc:  fcRes,
           isReal: false,
-          prestationsExtra: extra,
+          prestationsExtra: planned ?? 0,
         };
       }
 

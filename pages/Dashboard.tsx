@@ -15,7 +15,7 @@ const fmtEur = (n: number) =>
   }).format(n);
 
 interface DashboardProps {
-  onNavigate?: (page: string) => void;
+  onNavigate: (page: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
@@ -31,8 +31,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     setSyncMessage(null);
     try {
       const response = await fetch('/api/sync-qonto');
-      const data = await response.json();
-      
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        setSyncMessage({ text: 'Sync disponible uniquement en production', type: 'error' });
+        return;
+      }
+
       if (response.ok) {
         setSyncMessage({ text: `Synchronisation réussie (${data.count} transactions)`, type: 'success' });
         // Refresh the global state with new data from Supabase
@@ -41,7 +47,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         setSyncMessage({ text: `Erreur: ${data.error}`, type: 'error' });
       }
     } catch (error) {
-      setSyncMessage({ text: 'Erreur de connexion à l\'API', type: 'error' });
+      setSyncMessage({ text: 'Sync disponible uniquement en production', type: 'error' });
     } finally {
       setIsSyncing(false);
       setTimeout(() => setSyncMessage(null), 5000);
@@ -343,7 +349,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
 
           <button
-            onClick={() => onNavigate?.('transactions')}
+            onClick={() => onNavigate('transactions')}
             className="w-full mt-6 py-3 rounded-2xl border border-[#2A2A2A] text-sm font-medium text-muted hover:text-white hover:border-[#FF4D00]/50 hover:bg-[#FF4D00]/5 transition-all active:scale-[0.98]"
           >
             Voir toutes les transactions

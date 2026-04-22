@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, X, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Prestation, PrestationStatus, CoutPrestation } from '../types';
+import { QONTO_PRESTATIONS } from '../constants/data';
 
 /* ── helpers ─────────────────────────────────────────────────── */
 
@@ -42,7 +43,7 @@ export const Revenus: React.FC = () => {
   const [prestations, setPrestations] = useState<Prestation[]>(() => {
     try {
       const raw = localStorage.getItem('irys_prestations');
-      if (!raw) return [];
+      if (!raw) return QONTO_PRESTATIONS; // seed on first visit
       const parsed = JSON.parse(raw) as any[];
       // normalize legacy entries
       return parsed.map(p => ({
@@ -52,7 +53,7 @@ export const Revenus: React.FC = () => {
         couts:      p.couts ?? [],
         statut:     (['Signé','En attente','Payé'].includes(p.statut) ? p.statut : 'Payé') as PrestationStatus,
       }));
-    } catch { return []; }
+    } catch { return QONTO_PRESTATIONS; }
   });
 
   useEffect(() => {
@@ -69,13 +70,27 @@ export const Revenus: React.FC = () => {
   /* ── status dropdown ── */
   const [openStId, setOpenStId] = useState<string | null>(null);
 
+  /* ── click-outside to close status dropdown ── */
+  useEffect(() => {
+    if (!openStId) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || !target.closest('.status-dropdown')) {
+        setOpenStId(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openStId]);
+
   /* ── modal ── */
   const [modalOpen, setModalOpen] = useState(false);
   const [step,      setStep]      = useState<1 | 2>(1);
   const [s1,        setS1]        = useState(EMPTY_S1);
   const [couts,     setCouts]     = useState<{ description: string; montantHT: string }[]>([]);
   const [showDrop,  setShowDrop]  = useState(false);
-  const clientRef = useRef<HTMLInputElement>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   /* ── client autocomplete ── */
   const allClients = useMemo(() => {
@@ -92,12 +107,11 @@ export const Revenus: React.FC = () => {
     if (selYear === CUR_YEAR) {
       return Array.from({ length: CUR_MONTH_I + 1 }, (_, i) => i);
     }
-    const months = new Set(
-      prestations
-        .filter(p => getDate(p).startsWith(String(selYear)))
-        .map(p => parseInt(getDate(p).slice(5, 7)) - 1)
-    );
-    return [...months].sort((a, b) => a - b);
+    const monthsNumbers: number[] = prestations
+      .filter(p => getDate(p).startsWith(String(selYear)))
+      .map(p => parseInt(getDate(p).slice(5, 7), 10) - 1);
+    const uniqueMonths: number[] = Array.from(new Set<number>(monthsNumbers));
+    return uniqueMonths.sort((a: number, b: number) => a - b);
   }, [prestations, selYear]);
 
   /* ── period-filtered data (ignoring status filter, for KPIs) ── */
@@ -144,33 +158,88 @@ export const Revenus: React.FC = () => {
   };
 
   const openModal = () => {
-    setStep(1); setS1(EMPTY_S1); setCouts([]); setModalOpen(true);
+    setStep(1); setS1(EMPTY_S1); setCouts([]); setEditingId(null); setModalOpen(true);
+  };
+
+  const openEdit = (p: Prestation) => {
+    setEditingId(p.id);
+    setS1({
+      client:     p.client,
+      prestation: p.prestation || (p as any).description || '',
+      montantHT:  String(p.montantHT ?? ''),
+      dateDebut:  getDate(p),
+      statut:     p.statut,
+    });
+    setCouts(
+      (p.couts || []).map(c => ({
+        description: c.description,
+        montantHT:   String(c.montantHT ?? ''),
+      }))
+    );
+    setStep(1);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingId(null);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirmDeleteId === id) {
+      setPrestations(prev => prev.filter(p => p.id !== id));
+      setConfirmDeleteId(null);
+    } else {
+      setConfirmDeleteId(id);
+      // auto-reset confirmation after 3s
+      setTimeout(() => setConfirmDeleteId(cur => (cur === id ? null : cur)), 3000);
+    }
   };
 
   const goStep2 = (e: React.FormEvent) => { e.preventDefault(); setStep(2); };
 
   const handleSave = () => {
     const ht  = parseFloat(s1.montantHT) || 0;
-    const newP: Prestation = {
-      id:         `manual-${Date.now()}`,
-      client:     s1.client,
-      prestation: s1.prestation,
-      montantHT:  ht,
-      tva:        Math.round(ht * 0.2 * 100) / 100,
-      montantTTC: Math.round(ht * 1.2 * 100) / 100,
-      dateDebut:  s1.dateDebut,
-      statut:     s1.statut,
-      source:     'manual',
-      couts:      couts
-        .filter(c => c.description.trim() || c.montantHT)
-        .map((c, i): CoutPrestation => ({
-          id:          `cout-${Date.now()}-${i}`,
-          description: c.description,
-          montantHT:   parseFloat(c.montantHT) || 0,
-        })),
-    };
-    setPrestations(prev => [newP, ...prev]);
-    setModalOpen(false);
+    const mappedCouts: CoutPrestation[] = couts
+      .filter(c => c.description.trim() || c.montantHT)
+      .map((c, i): CoutPrestation => ({
+        id:          `cout-${Date.now()}-${i}`,
+        description: c.description,
+        montantHT:   parseFloat(c.montantHT) || 0,
+      }));
+
+    if (editingId) {
+      setPrestations(prev => prev.map(p =>
+        p.id === editingId
+          ? {
+              ...p,
+              client:     s1.client,
+              prestation: s1.prestation,
+              montantHT:  ht,
+              tva:        Math.round(ht * 0.2 * 100) / 100,
+              montantTTC: Math.round(ht * 1.2 * 100) / 100,
+              dateDebut:  s1.dateDebut,
+              statut:     s1.statut,
+              couts:      mappedCouts,
+            }
+          : p
+      ));
+    } else {
+      const newP: Prestation = {
+        id:         `manual-${Date.now()}`,
+        client:     s1.client,
+        prestation: s1.prestation,
+        montantHT:  ht,
+        tva:        Math.round(ht * 0.2 * 100) / 100,
+        montantTTC: Math.round(ht * 1.2 * 100) / 100,
+        dateDebut:  s1.dateDebut,
+        statut:     s1.statut,
+        source:     'manual',
+        couts:      mappedCouts,
+      };
+      setPrestations(prev => [newP, ...prev]);
+    }
+    closeModal();
   };
 
   const addCout    = () => setCouts(p => [...p, { description: '', montantHT: '' }]);
@@ -297,6 +366,7 @@ export const Revenus: React.FC = () => {
                   <th className="px-6 py-4 font-medium text-right">Marge</th>
                   <th className="px-6 py-4 font-medium">Date début</th>
                   <th className="px-6 py-4 font-medium">Statut</th>
+                  <th className="px-6 py-4 font-medium w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1A1A1A]">
@@ -305,7 +375,11 @@ export const Revenus: React.FC = () => {
                   const frais = (p.couts || []).reduce((s, c) => s + c.montantHT, 0);
                   const marge = p.montantHT > 0 ? ((p.montantHT - frais) / p.montantHT) * 100 : null;
                   return (
-                    <tr key={p.id} className="hover:bg-[#1A1A1A]/50 transition-colors">
+                    <tr
+                      key={p.id}
+                      onClick={() => openEdit(p)}
+                      className="hover:bg-[#1A1A1A]/50 transition-colors cursor-pointer"
+                    >
                       <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{p.client}</td>
                       <td className="px-6 py-4 text-muted max-w-[180px] truncate">
                         {p.prestation || (p as any).description || '—'}
@@ -325,25 +399,40 @@ export const Revenus: React.FC = () => {
                         {getDate(p) ? formatDateFR(getDate(p)) : '—'}
                       </td>
                       <td className="px-6 py-4 relative">
+                        <div className="status-dropdown relative inline-block" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => setOpenStId(openStId === p.id ? null : p.id)}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold ${sc.bg} ${sc.text}`}
+                          >
+                            {sc.label} <ChevronDown size={10} />
+                          </button>
+                          {openStId === p.id && (
+                            <div className="absolute z-10 mt-1 left-0 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden shadow-xl min-w-[120px]">
+                              {STATUTS.map(s => (
+                                <button
+                                  key={s}
+                                  onClick={() => changeStatut(p.id, s)}
+                                  className={`w-full text-left px-4 py-2 text-xs font-medium hover:bg-[#2A2A2A] transition-colors ${STATUS_CFG[s].text}`}
+                                >
+                                  {STATUS_CFG[s].label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-right" onClick={e => e.stopPropagation()}>
                         <button
-                          onClick={() => setOpenStId(openStId === p.id ? null : p.id)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold ${sc.bg} ${sc.text}`}
+                          onClick={() => handleDelete(p.id)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            confirmDeleteId === p.id
+                              ? 'bg-red-500/20 text-red-400'
+                              : 'text-muted hover:text-red-400 hover:bg-red-500/10'
+                          }`}
+                          title={confirmDeleteId === p.id ? 'Cliquer pour confirmer' : 'Supprimer'}
                         >
-                          {sc.label} <ChevronDown size={10} />
+                          <Trash2 size={14} />
                         </button>
-                        {openStId === p.id && (
-                          <div className="absolute z-10 mt-1 left-4 bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden shadow-xl min-w-[120px]">
-                            {STATUTS.map(s => (
-                              <button
-                                key={s}
-                                onClick={() => changeStatut(p.id, s)}
-                                className={`w-full text-left px-4 py-2 text-xs font-medium hover:bg-[#2A2A2A] transition-colors ${STATUS_CFG[s].text}`}
-                              >
-                                {STATUS_CFG[s].label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </td>
                     </tr>
                   );
@@ -360,7 +449,7 @@ export const Revenus: React.FC = () => {
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setModalOpen(false)}
+              onClick={closeModal}
               className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
             />
             <motion.div
@@ -375,7 +464,7 @@ export const Revenus: React.FC = () => {
                 {/* Modal header */}
                 <div className="p-6 pb-4 flex items-start justify-between border-b border-[#2A2A2A]">
                   <div>
-                    <h3 className="text-xl font-bold">Nouvelle prestation</h3>
+                    <h3 className="text-xl font-bold">{editingId ? 'Modifier la prestation' : 'Nouvelle prestation'}</h3>
                     <div className="flex items-center gap-2 mt-2">
                       {([1, 2] as const).map(s => (
                         <React.Fragment key={s}>
@@ -388,7 +477,7 @@ export const Revenus: React.FC = () => {
                       ))}
                     </div>
                   </div>
-                  <button onClick={() => setModalOpen(false)} className="text-muted hover:text-white transition-colors mt-1">
+                  <button onClick={closeModal} className="text-muted hover:text-white transition-colors mt-1">
                     <X size={20} />
                   </button>
                 </div>
@@ -401,7 +490,6 @@ export const Revenus: React.FC = () => {
                     <div className="space-y-1 relative">
                       <label className="text-xs font-bold text-muted uppercase tracking-wider">Client</label>
                       <input
-                        ref={clientRef}
                         type="text"
                         placeholder="Saisir ou choisir un client"
                         value={s1.client}
