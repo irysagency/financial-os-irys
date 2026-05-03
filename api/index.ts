@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { clerkMiddleware } from '@hono/clerk-auth';
+import { clerkMiddleware } from '@clerk/hono';
 import { cors } from 'hono/cors';
 import { handle } from 'hono/vercel';
 import { usersRouter } from './routes/users';

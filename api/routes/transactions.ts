@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getAuth } from '@hono/clerk-auth';
+import { getAuth } from '@clerk/hono';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index';
 import { users, transactions } from '../../db/schema';
