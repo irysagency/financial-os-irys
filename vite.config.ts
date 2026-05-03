@@ -18,9 +18,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor-charts':   ['recharts'],
-          'vendor-motion':   ['framer-motion'],
-          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-charts':  ['recharts'],
+          'vendor-motion':  ['framer-motion'],
         }
       }
     }
