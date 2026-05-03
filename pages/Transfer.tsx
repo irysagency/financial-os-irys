@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { Send, ArrowUpRight } from 'lucide-react';
 import { DERNIERS_VIREMENTS } from '../constants/data';
 
-const formatDateFR = (iso: string) =>
-  new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
+import { formatDateFR } from '../utils/format';
 
 export const Transfer: React.FC = () => {
   const [beneficiaire, setBeneficiaire] = useState('');

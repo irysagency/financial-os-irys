@@ -5,8 +5,7 @@ import { ABONNEMENTS_INITIALS } from '../constants/data';
 import { AbonnementItem, AbonnementStatut, AbonnementFrequence } from '../types';
 import { useSubscriptionMonthlyLogs } from '../hooks/useSubscriptionMonthlyLogs';
 
-const formatDateFR = (iso: string) =>
-  new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
+import { formatDateFR } from '../utils/format';
 
 const formatMonthFR = (month: string): string => {
   const [year, m] = month.split('-');
@@ -52,6 +51,7 @@ export const Abonnements: React.FC = () => {
   const [openStatusId, setOpenStatusId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonth);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const { logs, isLoading: logsLoading, errorMsg, toggleLog } = useSubscriptionMonthlyLogs(selectedMonth);
 
@@ -88,17 +88,23 @@ export const Abonnements: React.FC = () => {
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
+    const ht = parseFloat(form.montantHT);
+    if (!ht || ht <= 0) {
+      setFormError('Le montant HT doit être un nombre positif.');
+      return;
+    }
     const newAb: AbonnementItem = {
       id: `ab-${Date.now()}`,
       nom: form.nom,
       categorie: form.categorie,
-      montantHT: parseFloat(form.montantHT) || 0,
+      montantHT: ht,
       frequence: form.frequence,
       prochaineDate: form.prochaineDate,
       statut: form.statut,
     };
     setAbonnements(prev => [newAb, ...prev]);
     setIsAddOpen(false);
+    setFormError(null);
     setForm(EMPTY_FORM);
   };
 
@@ -356,6 +362,9 @@ export const Abonnements: React.FC = () => {
                       ))}
                     </div>
                   </div>
+                  {formError && (
+                    <p className="text-xs text-red-400 text-center">{formError}</p>
+                  )}
                   <button
                     type="submit"
                     className="w-full bg-[#FF4D00] text-white font-bold py-3.5 rounded-xl shadow-[0_4px_14px_rgba(255,77,0,0.4)] hover:scale-[1.02] active:scale-[0.98] transition-all mt-2"

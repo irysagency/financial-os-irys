@@ -6,13 +6,7 @@ import {
   ResponsiveContainer, CartesianGrid,
   PieChart, Pie, Cell,
 } from 'recharts';
-
-const fmtEur = (n: number) =>
-  new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(n);
+import { fmtEur } from '../utils/format';
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
@@ -30,7 +24,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     setIsSyncing(true);
     setSyncMessage(null);
     try {
-      const response = await fetch('/api/sync-qonto');
+      const apiToken = (import.meta as any).env?.VITE_API_TOKEN as string | undefined;
+      const response = await fetch('/api/sync-qonto', {
+        headers: apiToken ? { 'x-api-token': apiToken } : {},
+      });
       let data: any;
       try {
         data = await response.json();

@@ -6,14 +6,7 @@ import { QONTO_PRESTATIONS } from '../constants/data';
 
 /* ── helpers ─────────────────────────────────────────────────── */
 
-const fmtEur = (n: number) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(n);
-
-const formatDateFR = (iso: string) => {
-  try {
-    return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
-  } catch { return iso; }
-};
+import { fmtEur, formatDateFR } from '../utils/format';
 
 /* ── config ──────────────────────────────────────────────────── */
 
@@ -58,6 +51,7 @@ export const Revenus: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('irys_prestations', JSON.stringify(prestations));
+    window.dispatchEvent(new CustomEvent('irys:prestations-updated'));
   }, [prestations]);
 
   /* ── period filter ── */
@@ -91,6 +85,7 @@ export const Revenus: React.FC = () => {
   const [showDrop,  setShowDrop]  = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   /* ── client autocomplete ── */
   const allClients = useMemo(() => {
@@ -183,6 +178,7 @@ export const Revenus: React.FC = () => {
   const closeModal = () => {
     setModalOpen(false);
     setEditingId(null);
+    setModalError(null);
   };
 
   const handleDelete = (id: string) => {
@@ -196,7 +192,16 @@ export const Revenus: React.FC = () => {
     }
   };
 
-  const goStep2 = (e: React.FormEvent) => { e.preventDefault(); setStep(2); };
+  const goStep2 = (e: React.FormEvent) => {
+    e.preventDefault();
+    const ht = parseFloat(s1.montantHT);
+    if (!ht || ht <= 0) {
+      setModalError('Le montant HT doit être un nombre positif.');
+      return;
+    }
+    setModalError(null);
+    setStep(2);
+  };
 
   const handleSave = () => {
     const ht  = parseFloat(s1.montantHT) || 0;
@@ -574,6 +579,9 @@ export const Revenus: React.FC = () => {
                       </div>
                     </div>
 
+                    {modalError && (
+                      <p className="text-xs text-red-400 text-center">{modalError}</p>
+                    )}
                     <button
                       type="submit"
                       className="w-full bg-[#FF4D00] text-white font-bold py-3.5 rounded-xl shadow-[0_4px_14px_rgba(255,77,0,0.4)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"

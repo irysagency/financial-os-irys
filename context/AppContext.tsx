@@ -1,17 +1,20 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, StatCardData, Transaction, ChartDataPoint, AbonnementItem } from '../types';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import {
+  User, StatCardData, Transaction, ChartDataPoint,
+  AbonnementItem, PnlSummary, CashFlowDataPoint, ExpenseDistributionItem,
+} from '../types';
 import { mockDb } from '../services/mockDb';
 
 interface AppState {
   user: User | null;
   isLoading: boolean;
   kpis: StatCardData[];
-  cashFlow: any[]; // shape { mois, label, ca, charges, resultat, fraisBancaires, hasData }
+  cashFlow: CashFlowDataPoint[];
   subscriptions: AbonnementItem[];
   recentTransactions: Transaction[];
-  expenseDistribution: any[];
+  expenseDistribution: ExpenseDistributionItem[];
   analyticsData: ChartDataPoint[];
-  pnl: any | null;
+  pnl: PnlSummary | null;
   refreshData: () => void;
 }
 
@@ -22,15 +25,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [kpis, setKpis] = useState<StatCardData[]>([]);
-  const [cashFlow, setCashFlow] = useState<any[]>([]);
+  const [cashFlow, setCashFlow] = useState<CashFlowDataPoint[]>([]);
   const [subscriptions, setSubscriptions] = useState<AbonnementItem[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
-  const [expenseDistribution, setExpenseDistribution] = useState<any[]>([]);
+  const [expenseDistribution, setExpenseDistribution] = useState<ExpenseDistributionItem[]>([]);
   const [analyticsData, setAnalyticsData] = useState<ChartDataPoint[]>([]);
-  const [pnl, setPnl] = useState<any | null>(null);
+  const [pnl, setPnl] = useState<PnlSummary | null>(null);
 
   const applyMockDashboard = async () => {
-    const dashboard: any = await mockDb.getDashboardData();
+    const dashboard = await mockDb.getDashboardData() as {
+      kpis: StatCardData[];
+      cashFlow: CashFlowDataPoint[];
+      subscriptions: AbonnementItem[];
+      recentTransactions: Transaction[];
+      expenseDistribution: ExpenseDistributionItem[];
+      pnl: PnlSummary;
+    };
     setKpis(dashboard.kpis);
     setCashFlow(dashboard.cashFlow);
     setSubscriptions(dashboard.subscriptions);
@@ -39,20 +49,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setPnl(dashboard.pnl);
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const u = await mockDb.getUser();
       setUser(u);
 
-      // Try the real API route (works in Vercel production).
       let usedApi = false;
       try {
-        const response = await fetch('/api/get-dashboard-data');
+        const apiToken = (import.meta as any).env?.VITE_API_TOKEN as string | undefined;
+        const response = await fetch('/api/get-dashboard-data', {
+          headers: apiToken ? { 'x-api-token': apiToken } : {},
+        });
         if (response.ok) {
           try {
             const dashboard = await response.json();
-            // Guard against dev server returning index.html parsed as something unexpected.
             if (dashboard && Array.isArray(dashboard.kpis)) {
               setKpis(dashboard.kpis || []);
               setCashFlow(dashboard.chartData || []);
@@ -62,7 +73,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               setExpenseDistribution(dashboard.expenseDistribution || []);
               setPnl(dashboard.pnl || null);
               usedApi = true;
-              // Sync API-detected subscriptions into localStorage so Abonnements page stays in sync
               try {
                 const stored: AbonnementItem[] = JSON.parse(localStorage.getItem('irys_abonnements') || '[]');
                 const merged = [...stored];
@@ -82,7 +92,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               } catch { /* ignore localStorage errors */ }
             }
           } catch (jsonErr) {
-            // Body was not JSON (e.g. dev server returned index.html). Fall back.
             console.warn('Dashboard API returned non-JSON, falling back to mockDb.', jsonErr);
           }
         }
@@ -94,22 +103,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         await applyMockDashboard();
       }
 
-      const analytics: any = await mockDb.getAnalyticsData();
+      const analytics = await mockDb.getAnalyticsData() as { chart: ChartDataPoint[] };
       setAnalyticsData(analytics.chart);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
-
-  const refreshData = () => {
-    loadData();
-  };
+  }, [loadData]);
 
   return (
     <AppContext.Provider value={{
@@ -122,7 +127,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       expenseDistribution,
       analyticsData,
       pnl,
-      refreshData,
+      refreshData: loadData,
     }}>
       {children}
     </AppContext.Provider>

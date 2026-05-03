@@ -1,18 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Clock, ArrowRight } from 'lucide-react';
 import { ABONNEMENTS_INITIALS } from '../constants/data';
 import { AbonnementItem } from '../types';
+import { useApp } from '../context/AppContext';
+import { formatDateFR } from '../utils/format';
 
-const formatDateFR = (iso: string) =>
-  new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 interface PaymentsProps {
   onNavigate: (page: string) => void;
 }
 
 export const Payments: React.FC<PaymentsProps> = ({ onNavigate }) => {
-  const stored = localStorage.getItem('irys_abonnements');
-  const abonnements: AbonnementItem[] = stored ? JSON.parse(stored) : ABONNEMENTS_INITIALS;
+  const { analyticsData } = useApp();
+
+  const [abonnements] = useState<AbonnementItem[]>(() => {
+    const stored = localStorage.getItem('irys_abonnements');
+    return stored ? JSON.parse(stored) : ABONNEMENTS_INITIALS;
+  });
   const actifs = abonnements.filter(a => a.statut === 'Actif');
 
   const coutMensuel = actifs
@@ -23,8 +28,10 @@ export const Payments: React.FC<PaymentsProps> = ({ onNavigate }) => {
     (a, b) => new Date(a.prochaineDate).getTime() - new Date(b.prochaineDate).getTime()
   )[0];
 
-  // Total débits du mois courant (Avr 2026, partiel) — valeur fixe depuis données Qonto
-  const totalPayeCeMois = 125.27;
+  const now = new Date();
+  const currentMonthAnalytics = analyticsData.find(d => d.name === MONTH_SHORT[now.getMonth()]);
+  const totalPayeCeMois = currentMonthAnalytics?.expense ?? 0;
+  const periodeLabel = `${now.toLocaleDateString('fr-FR', { month: 'short' })} ${now.getFullYear()} (partiel)`;
 
   const KpiCard = ({ title, value, sub }: { title: string; value: string; sub?: string }) => (
     <div className="bg-card border border-[#2A2A2A] p-6 rounded-3xl">
@@ -43,7 +50,7 @@ export const Payments: React.FC<PaymentsProps> = ({ onNavigate }) => {
         <KpiCard
           title="Payé ce mois"
           value={`${totalPayeCeMois.toFixed(2)} €`}
-          sub="Avr 2026 (partiel)"
+          sub={periodeLabel}
         />
         <KpiCard
           title="Abonnements actifs"

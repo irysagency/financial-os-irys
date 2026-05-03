@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Search } from 'lucide-react';
-
-const fmtEur = (n: number) =>
-  new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(n);
+import { fmtEur } from '../utils/format';
 
 const getStatusBadge = (type: string) => {
   switch (type) {

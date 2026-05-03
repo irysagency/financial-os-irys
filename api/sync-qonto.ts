@@ -6,6 +6,11 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export default async function handler(req: any, res: any) {
+  const apiSecret = process.env.API_SECRET;
+  if (apiSecret && req.headers['x-api-token'] !== apiSecret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   // 1. Check Env Vars
   const QONTO_SLUG = process.env.QONTO_SLUG;
   const QONTO_SECRET = process.env.QONTO_SECRET;

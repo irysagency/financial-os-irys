@@ -143,6 +143,22 @@ export interface AbonnementItem {
   statut: AbonnementStatut;
 }
 
+export interface CashFlowDataPoint {
+  mois: string;
+  label: string;
+  ca: number;
+  charges: number;
+  resultat: number;
+  fraisBancaires: number;
+  hasData: boolean;
+}
+
+export interface ExpenseDistributionItem {
+  name: string;
+  value: number;
+  color: string;
+}
+
 export interface SubscriptionMonthlyLog {
   id: string;
   subscription_id: string;

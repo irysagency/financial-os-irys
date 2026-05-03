@@ -45,6 +45,11 @@ function categorize(label: string): string {
 }
 
 export default async function handler(req: any, res: any) {
+  const apiSecret = process.env.API_SECRET;
+  if (apiSecret && req.headers['x-api-token'] !== apiSecret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   try {
     const { data: transactions, error } = await supabase
       .from('transactions')

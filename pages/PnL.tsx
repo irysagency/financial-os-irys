@@ -6,13 +6,9 @@ import {
   ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { useApp } from '../context/AppContext';
+import { fmtEur } from '../utils/format';
 
-/* ── helpers ─────────────────────────────────────────────────── */
-
-const fmtEur = (n: number) =>
-  new Intl.NumberFormat('fr-FR', {
-    style: 'currency', currency: 'EUR', minimumFractionDigits: 2,
-  }).format(n);
+/* ── constants ───────────────────────────────────────────────── */
 
 const IS_RATE  = 0.15;
 const PFU_RATE = 0.30;
@@ -46,11 +42,21 @@ export const PnL: React.FC = () => {
   useEffect(() => { localStorage.setItem('irys_objectif_resultat_annuel', String(objResultat)); }, [objResultat]);
 
   /* ── local prestations from Revenus page ─────────────────────── */
-  const localPrestations = useMemo(() => {
+  const [localPrestations, setLocalPrestations] = useState<Array<{ montantHT: number; dateDebut?: string; dateEmission?: string; statut: string }>>(() => {
     try {
       const raw = localStorage.getItem('irys_prestations');
-      return raw ? (JSON.parse(raw) as Array<{ montantHT: number; dateDebut?: string; dateEmission?: string; statut: string }>) : [];
+      return raw ? JSON.parse(raw) : [];
     } catch { return []; }
+  });
+  useEffect(() => {
+    const refresh = () => {
+      try {
+        const raw = localStorage.getItem('irys_prestations');
+        setLocalPrestations(raw ? JSON.parse(raw) : []);
+      } catch { setLocalPrestations([]); }
+    };
+    window.addEventListener('irys:prestations-updated', refresh);
+    return () => window.removeEventListener('irys:prestations-updated', refresh);
   }, []);
 
   /* ── real history from API ───────────────────────────────────── */

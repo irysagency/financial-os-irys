@@ -1,17 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Calendar } from 'lucide-react';
-
-const fmtEur = (n: number) =>
-  new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(n);
+import { fmtEur } from '../utils/format';
 
 export const Analytics: React.FC = () => {
   const { analyticsData, isLoading } = useApp();
+  const [activeView, setActiveView] = useState<'income' | 'expense'>('income');
+  const displayYear = new Date().getFullYear();
 
   if (isLoading) return null;
 
@@ -28,17 +24,31 @@ export const Analytics: React.FC = () => {
 
         <div className="flex items-center gap-4">
           <div className="bg-[#121212] border border-[#2A2A2A] rounded-xl p-1 flex">
-            <button className="px-6 py-2 rounded-lg bg-[#FF4D00] text-white text-sm font-bold shadow-lg">
-              Income
+            <button
+              onClick={() => setActiveView('income')}
+              className={`px-6 py-2 rounded-lg text-sm font-bold transition-colors ${
+                activeView === 'income'
+                  ? 'bg-[#FF4D00] text-white shadow-lg'
+                  : 'text-muted hover:text-white'
+              }`}
+            >
+              Revenus
             </button>
-            <button className="px-6 py-2 rounded-lg text-muted hover:text-white text-sm font-medium transition-colors">
-              Expense
+            <button
+              onClick={() => setActiveView('expense')}
+              className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeView === 'expense'
+                  ? 'bg-[#444] text-white shadow-lg'
+                  : 'text-muted hover:text-white'
+              }`}
+            >
+              Dépenses
             </button>
           </div>
 
           <button className="bg-[#121212] border border-[#2A2A2A] text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 hover:border-[#FF4D00] transition-colors">
             <Calendar size={16} className="text-[#FF4D00]" />
-            2026
+            {displayYear}
           </button>
         </div>
       </div>
@@ -47,7 +57,11 @@ export const Analytics: React.FC = () => {
       <div className="bg-card border border-[#2A2A2A] p-8 rounded-[32px] shadow-2xl">
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-1">Analysis & Comparison</h2>
-          <p className="text-muted text-sm">Track your income trends over the fiscal year.</p>
+          <p className="text-muted text-sm">
+            {activeView === 'income'
+              ? 'Évolution de vos revenus sur l\'exercice fiscal.'
+              : 'Évolution de vos dépenses sur l\'exercice fiscal.'}
+          </p>
         </div>
 
         <div className="h-[400px] w-full">
@@ -59,7 +73,7 @@ export const Analytics: React.FC = () => {
                   <stop offset="95%" stopColor="#FF4D00" stopOpacity={0}/>
                 </linearGradient>
                 <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#888" stopOpacity={0.2}/>
+                  <stop offset="5%" stopColor="#888" stopOpacity={0.3}/>
                   <stop offset="95%" stopColor="#888" stopOpacity={0}/>
                 </linearGradient>
               </defs>
@@ -79,23 +93,31 @@ export const Analytics: React.FC = () => {
               />
               <Tooltip
                 contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #333', borderRadius: '12px', color: '#fff' }}
+                formatter={(value: number, name: string) => [
+                  fmtEur(value),
+                  name === 'income' ? 'Revenus' : 'Dépenses',
+                ]}
               />
-              <Area
-                type="monotone"
-                dataKey="expense"
-                stroke="#444"
-                strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#colorExpense)"
-              />
-              <Area
-                type="monotone"
-                dataKey="income"
-                stroke="#FF4D00"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#colorIncome)"
-              />
+              {activeView === 'expense' && (
+                <Area
+                  type="monotone"
+                  dataKey="expense"
+                  stroke="#888"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorExpense)"
+                />
+              )}
+              {activeView === 'income' && (
+                <Area
+                  type="monotone"
+                  dataKey="income"
+                  stroke="#FF4D00"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorIncome)"
+                />
+              )}
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -111,7 +133,7 @@ export const Analytics: React.FC = () => {
           <div className="text-muted text-sm mb-2">Dépenses totales</div>
           <div className="text-2xl font-bold">{fmtEur(totalExpense)}</div>
         </div>
-         <div className="bg-card border border-[#2A2A2A] p-6 rounded-2xl">
+        <div className="bg-card border border-[#2A2A2A] p-6 rounded-2xl">
           <div className="text-muted text-sm mb-2">Épargne nette</div>
           <div className="text-2xl font-bold text-[#FF4D00]">{fmtEur(netSavings)}</div>
         </div>
