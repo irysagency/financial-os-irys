@@ -3,7 +3,6 @@ import { getAuth } from '@hono/clerk-auth';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../../db/index';
 import { users, abonnements, abonnementLogs } from '../../db/schema';
-import { randomUUID } from 'crypto';
 
 export const abonnementsRouter = new Hono();
 
@@ -41,7 +40,7 @@ abonnementsRouter.post('/', async (c) => {
     prochaineDate: string;
   }>();
 
-  const id = randomUUID();
+  const id = crypto.randomUUID();
   await db.insert(abonnements).values({
     id,
     userId: auth.userId,
@@ -130,7 +129,7 @@ abonnementsRouter.put('/logs/:mois/:abonnementId', async (c) => {
       .where(eq(abonnementLogs.id, existing[0].id));
   } else {
     await db.insert(abonnementLogs).values({
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       abonnementId,
       userId: auth.userId,
       mois,

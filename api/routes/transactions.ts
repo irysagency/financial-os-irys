@@ -3,7 +3,6 @@ import { getAuth } from '@hono/clerk-auth';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../../db/index';
 import { users, transactions } from '../../db/schema';
-import { randomUUID } from 'crypto';
 
 export const transactionsRouter = new Hono();
 
@@ -39,7 +38,7 @@ transactionsRouter.post('/', async (c) => {
     source?: string;
   }>();
 
-  const id = randomUUID();
+  const id = crypto.randomUUID();
   await db.insert(transactions).values({
     id,
     userId: auth.userId,
@@ -75,7 +74,7 @@ transactionsRouter.post('/import', async (c) => {
 
   await db.insert(transactions).values(
     body.map(t => ({
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       userId: auth.userId!,
       name: t.name,
       amount: String(t.amount),

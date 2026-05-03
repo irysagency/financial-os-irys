@@ -3,7 +3,6 @@ import { getAuth } from '@hono/clerk-auth';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../../db/index';
 import { users, prestations, coutsPrestation } from '../../db/schema';
-import { randomUUID } from 'crypto';
 
 export const prestationsRouter = new Hono();
 
@@ -64,7 +63,7 @@ prestationsRouter.post('/', async (c) => {
     couts?: Array<{ description: string; montantHT: number }>;
   }>();
 
-  const id = randomUUID();
+  const id = crypto.randomUUID();
   await db.insert(prestations).values({
     id,
     userId: auth.userId,
@@ -79,7 +78,7 @@ prestationsRouter.post('/', async (c) => {
   if (body.couts?.length) {
     await db.insert(coutsPrestation).values(
       body.couts.map(ct => ({
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         prestationId: id,
         userId: auth.userId!,
         libelle: ct.description,
@@ -128,7 +127,7 @@ prestationsRouter.patch('/:id', async (c) => {
     if (body.couts.length > 0) {
       await db.insert(coutsPrestation).values(
         body.couts.map(ct => ({
-          id: randomUUID(),
+          id: crypto.randomUUID(),
           prestationId: id,
           userId: auth.userId!,
           libelle: ct.description,

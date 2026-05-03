@@ -1,11 +1,14 @@
 import { Hono } from 'hono';
 import { clerkMiddleware } from '@hono/clerk-auth';
 import { cors } from 'hono/cors';
+import { handle } from 'hono/vercel';
 import { usersRouter } from './routes/users';
 import { prestationsRouter } from './routes/prestations';
 import { abonnementsRouter } from './routes/abonnements';
 import { transactionsRouter } from './routes/transactions';
 import { dashboardRouter } from './routes/dashboard';
+
+export const runtime = 'edge';
 
 const app = new Hono().basePath('/api');
 
@@ -25,4 +28,4 @@ app.route('/dashboard', dashboardRouter);
 
 app.get('/health', (c) => c.json({ ok: true }));
 
-export default app;
+export default handle(app);
