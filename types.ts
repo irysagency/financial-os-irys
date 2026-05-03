@@ -143,6 +143,15 @@ export interface AbonnementItem {
   statut: AbonnementStatut;
 }
 
+export interface SubscriptionMonthlyLog {
+  id: string;
+  subscription_id: string;
+  user_id: string;
+  month: string;       // YYYY-MM
+  taken: boolean;
+  created_at: string;
+}
+
 export interface VirementHistorique {
   id: string;
   beneficiaire: string;

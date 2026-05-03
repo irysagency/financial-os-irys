@@ -1,16 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, ChevronDown } from 'lucide-react';
+import { Plus, X, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ABONNEMENTS_INITIALS } from '../constants/data';
 import { AbonnementItem, AbonnementStatut, AbonnementFrequence } from '../types';
+import { useSubscriptionMonthlyLogs } from '../hooks/useSubscriptionMonthlyLogs';
 
 const formatDateFR = (iso: string) =>
   new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
 
+const formatMonthFR = (month: string): string => {
+  const [year, m] = month.split('-');
+  const date = new Date(parseInt(year), parseInt(m) - 1, 1);
+  const s = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(date);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+const getCurrentMonth = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const shiftMonth = (month: string, delta: number): string => {
+  const [year, m] = month.split('-').map(Number);
+  const d = new Date(year, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
 const STATUT_CONFIG: Record<AbonnementStatut, { bg: string; text: string }> = {
-  Actif:   { bg: 'bg-[#1B5E20]/30',  text: 'text-[#4CAF50]' },
-  Pausé:   { bg: 'bg-[#FF4D00]/10',  text: 'text-[#FF4D00]' },
-  Annulé:  { bg: 'bg-[#2A2A2A]',     text: 'text-muted' },
+  Actif:   { bg: 'bg-[#1B5E20]/30', text: 'text-[#4CAF50]' },
+  Pausé:   { bg: 'bg-[#FF4D00]/10', text: 'text-[#FF4D00]' },
+  Annulé:  { bg: 'bg-[#2A2A2A]',    text: 'text-muted'     },
 };
 
 const ALL_STATUTS: AbonnementStatut[] = ['Actif', 'Pausé', 'Annulé'];
@@ -32,23 +51,32 @@ export const Abonnements: React.FC = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [openStatusId, setOpenStatusId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonth);
+
+  const { logs, isLoading: logsLoading, errorMsg, toggleLog } = useSubscriptionMonthlyLogs(selectedMonth);
+
+  const currentMonth = getCurrentMonth();
+  const isNextDisabled = selectedMonth >= currentMonth;
 
   useEffect(() => {
     localStorage.setItem('irys_abonnements', JSON.stringify(abonnements));
   }, [abonnements]);
 
-  const actifs = abonnements.filter(a => a.statut === 'Actif');
+  // KPIs basés sur les logs du mois sélectionné
+  const pris = abonnements.filter(a => logs[a.id] === true);
 
-  const coutMensuel = actifs
+  const coutMensuelReel = pris
     .filter(a => a.frequence === 'Mensuel')
     .reduce((s, a) => s + a.montantHT, 0);
 
-  const coutAnnuels = actifs
+  const coutAnnuelsPris = pris
     .filter(a => a.frequence === 'Annuel')
     .reduce((s, a) => s + a.montantHT, 0);
 
-  const coutAnnuelTotal = coutMensuel * 12 + coutAnnuels;
+  const coutAnnuelProjeté = coutMensuelReel * 12 + coutAnnuelsPris;
 
+  // Prochaine échéance : inchangée, basée sur le statut des abonnements
+  const actifs = abonnements.filter(a => a.statut === 'Actif');
   const prochainAb = [...actifs].sort(
     (a, b) => new Date(a.prochaineDate).getTime() - new Date(b.prochaineDate).getTime()
   )[0];
@@ -74,7 +102,6 @@ export const Abonnements: React.FC = () => {
     setForm(EMPTY_FORM);
   };
 
-  // Trié par montant décroissant
   const sorted = [...abonnements].sort((a, b) => b.montantHT - a.montantHT);
 
   const KpiCard = ({ title, value, sub }: { title: string; value: string; sub?: string }) => (
@@ -87,38 +114,76 @@ export const Abonnements: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Error toast */}
+      <AnimatePresence>
+        {errorMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            className="fixed bottom-6 right-6 z-50 bg-[#1A1A1A] border border-[#FF4D00]/40 text-[#FF4D00] text-sm px-4 py-3 rounded-xl shadow-xl"
+          >
+            {errorMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* HEADER */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold">Abonnements</h1>
-        <button
-          onClick={() => setIsAddOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#FF4D00] text-white text-sm font-bold rounded-full shadow-[0_4px_14px_rgba(255,77,0,0.4)] hover:scale-105 transition-transform"
-        >
-          <Plus size={16} /> Ajouter un abonnement
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Sélecteur de mois */}
+          <div className="flex items-center gap-1.5 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl px-3 py-2">
+            <button
+              onClick={() => setSelectedMonth(shiftMonth(selectedMonth, -1))}
+              className="text-muted hover:text-white transition-colors p-0.5 rounded-lg hover:bg-[#2A2A2A]"
+              aria-label="Mois précédent"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <span className="text-sm font-semibold min-w-[116px] text-center select-none">
+              {formatMonthFR(selectedMonth)}
+            </span>
+            <button
+              onClick={() => setSelectedMonth(shiftMonth(selectedMonth, 1))}
+              disabled={isNextDisabled}
+              className="text-muted hover:text-white transition-colors p-0.5 rounded-lg hover:bg-[#2A2A2A] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              aria-label="Mois suivant"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+
+          <button
+            onClick={() => setIsAddOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#FF4D00] text-white text-sm font-bold rounded-full shadow-[0_4px_14px_rgba(255,77,0,0.4)] hover:scale-105 transition-transform"
+          >
+            <Plus size={16} /> Ajouter un abonnement
+          </button>
+        </div>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <KpiCard title="Abonnements actifs" value={`${actifs.length}`} />
         <KpiCard
-          title="Coût mensuel HT"
-          value={`${coutMensuel.toFixed(2)} €`}
-          sub="Abonnements mensuels"
+          title="Pris ce mois"
+          value={logsLoading ? '—' : `${pris.length}`}
+          sub={logsLoading ? 'Chargement…' : `sur ${abonnements.length} abonnement${abonnements.length > 1 ? 's' : ''}`}
+        />
+        <KpiCard
+          title="Coût mensuel réel HT"
+          value={logsLoading ? '—' : `${coutMensuelReel.toFixed(2)} €`}
+          sub="Abonnements pris ce mois"
         />
         <KpiCard
           title="Coût annuel projeté HT"
-          value={`${coutAnnuelTotal.toFixed(2)} €`}
-          sub="Mensuels ×12 + annuels"
+          value={logsLoading ? '—' : `${coutAnnuelProjeté.toFixed(2)} €`}
+          sub="Mensuels ×12 + annuels pris"
         />
         <KpiCard
           title="Prochaine échéance"
           value={prochainAb ? `${prochainAb.montantHT.toFixed(2)} €` : '—'}
-          sub={
-            prochainAb
-              ? `${prochainAb.nom} · ${formatDateFR(prochainAb.prochaineDate)}`
-              : undefined
-          }
+          sub={prochainAb ? `${prochainAb.nom} · ${formatDateFR(prochainAb.prochaineDate)}` : undefined}
         />
       </div>
 
@@ -137,11 +202,13 @@ export const Abonnements: React.FC = () => {
                   <th className="px-6 py-4 font-medium">Fréquence</th>
                   <th className="px-6 py-4 font-medium">Prochaine date</th>
                   <th className="px-6 py-4 font-medium">Statut</th>
+                  <th className="px-6 py-4 font-medium text-center">Ce mois</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1A1A1A]">
                 {sorted.map(a => {
                   const sc = STATUT_CONFIG[a.statut];
+                  const isTaken = logs[a.id] === true;
                   return (
                     <tr key={a.id} className="hover:bg-[#1A1A1A]/50 transition-colors">
                       <td className="px-6 py-4">
@@ -162,9 +229,7 @@ export const Abonnements: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 relative">
                         <button
-                          onClick={() =>
-                            setOpenStatusId(openStatusId === a.id ? null : a.id)
-                          }
+                          onClick={() => setOpenStatusId(openStatusId === a.id ? null : a.id)}
                           className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold ${sc.bg} ${sc.text}`}
                         >
                           {a.statut} <ChevronDown size={10} />
@@ -182,6 +247,25 @@ export const Abonnements: React.FC = () => {
                             ))}
                           </div>
                         )}
+                      </td>
+                      {/* Toggle "Ce mois" */}
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center">
+                          <button
+                            onClick={() => toggleLog(a.id, !isTaken)}
+                            disabled={logsLoading}
+                            title={isTaken ? 'Pris ce mois — cliquer pour retirer' : 'Pas pris ce mois — cliquer pour marquer'}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${
+                              isTaken ? 'bg-[#FF4D00]' : 'bg-[#2A2A2A]'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                                isTaken ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                              }`}
+                            />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -221,10 +305,10 @@ export const Abonnements: React.FC = () => {
                 </div>
                 <form onSubmit={handleAdd} className="p-6 space-y-4">
                   {[
-                    { label: 'Nom',          field: 'nom',          type: 'text',   placeholder: 'ex : Figma' },
-                    { label: 'Catégorie',    field: 'categorie',    type: 'text',   placeholder: 'ex : Design / SaaS' },
-                    { label: 'Montant HT (€)', field: 'montantHT', type: 'number', placeholder: '0.00' },
-                    { label: 'Prochaine date', field: 'prochaineDate', type: 'date', placeholder: '' },
+                    { label: 'Nom',             field: 'nom',           type: 'text',   placeholder: 'ex : Figma' },
+                    { label: 'Catégorie',        field: 'categorie',     type: 'text',   placeholder: 'ex : Design / SaaS' },
+                    { label: 'Montant HT (€)',   field: 'montantHT',     type: 'number', placeholder: '0.00' },
+                    { label: 'Prochaine date',   field: 'prochaineDate', type: 'date',   placeholder: '' },
                   ].map(({ label, field, type, placeholder }) => (
                     <div key={field} className="space-y-1">
                       <label className="text-xs font-bold text-muted uppercase tracking-wider">
@@ -246,9 +330,7 @@ export const Abonnements: React.FC = () => {
                     </label>
                     <select
                       value={form.frequence}
-                      onChange={e =>
-                        setForm(f => ({ ...f, frequence: e.target.value as AbonnementFrequence }))
-                      }
+                      onChange={e => setForm(f => ({ ...f, frequence: e.target.value as AbonnementFrequence }))}
                       className="w-full bg-[#1A1A1A] border border-[#333] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#FF4D00] transition-all appearance-none"
                     >
                       <option>Mensuel</option>
