@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, X, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Prestation, PrestationStatus, CoutPrestation } from '../types';
-import { QONTO_PRESTATIONS } from '../constants/data';
+import { useApiClient } from '../hooks/useApiClient';
 
 /* ── helpers ─────────────────────────────────────────────────── */
 
@@ -33,26 +34,28 @@ const getDate = (p: Prestation) => p.dateDebut || (p as any).dateEmission || '';
 export const Revenus: React.FC = () => {
 
   /* ── data ── */
-  const [prestations, setPrestations] = useState<Prestation[]>(() => {
-    try {
-      const raw = localStorage.getItem('irys_prestations');
-      if (!raw) return QONTO_PRESTATIONS; // seed on first visit
-      const parsed = JSON.parse(raw) as any[];
-      // normalize legacy entries
-      return parsed.map(p => ({
-        ...p,
-        prestation: p.prestation ?? p.description ?? '',
-        dateDebut:  p.dateDebut  ?? p.dateEmission ?? '',
-        couts:      p.couts ?? [],
-        statut:     (['Signé','En attente','Payé'].includes(p.statut) ? p.statut : 'Payé') as PrestationStatus,
-      }));
-    } catch { return QONTO_PRESTATIONS; }
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+
+  const { data: prestations = [], isLoading: dataLoading } = useQuery<Prestation[]>({
+    queryKey: ['prestations'],
+    queryFn: () => api.get<Prestation[]>('/prestations'),
   });
 
-  useEffect(() => {
-    localStorage.setItem('irys_prestations', JSON.stringify(prestations));
-    window.dispatchEvent(new CustomEvent('irys:prestations-updated'));
-  }, [prestations]);
+  const createMutation = useMutation({
+    mutationFn: (body: unknown) => api.post('/prestations', body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['prestations'] }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: unknown }) => api.patch(`/prestations/${id}`, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['prestations'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.del(`/prestations/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['prestations'] }),
+  });
 
   /* ── period filter ── */
   const [selYear,  setSelYear]  = useState(CUR_YEAR);
@@ -148,7 +151,7 @@ export const Revenus: React.FC = () => {
 
   /* ── handlers ── */
   const changeStatut = (id: string, statut: PrestationStatus) => {
-    setPrestations(prev => prev.map(p => p.id === id ? { ...p, statut } : p));
+    updateMutation.mutate({ id, body: { statut } });
     setOpenStId(null);
   };
 
@@ -183,11 +186,10 @@ export const Revenus: React.FC = () => {
 
   const handleDelete = (id: string) => {
     if (confirmDeleteId === id) {
-      setPrestations(prev => prev.filter(p => p.id !== id));
+      deleteMutation.mutate(id);
       setConfirmDeleteId(null);
     } else {
       setConfirmDeleteId(id);
-      // auto-reset confirmation after 3s
       setTimeout(() => setConfirmDeleteId(cur => (cur === id ? null : cur)), 3000);
     }
   };
@@ -204,45 +206,24 @@ export const Revenus: React.FC = () => {
   };
 
   const handleSave = () => {
-    const ht  = parseFloat(s1.montantHT) || 0;
-    const mappedCouts: CoutPrestation[] = couts
+    const ht = parseFloat(s1.montantHT) || 0;
+    const mappedCouts = couts
       .filter(c => c.description.trim() || c.montantHT)
-      .map((c, i): CoutPrestation => ({
-        id:          `cout-${Date.now()}-${i}`,
-        description: c.description,
-        montantHT:   parseFloat(c.montantHT) || 0,
-      }));
+      .map(c => ({ description: c.description, montantHT: parseFloat(c.montantHT) || 0 }));
+
+    const payload = {
+      client: s1.client,
+      prestation: s1.prestation,
+      montantHT: ht,
+      statut: s1.statut,
+      dateDebut: s1.dateDebut,
+      couts: mappedCouts,
+    };
 
     if (editingId) {
-      setPrestations(prev => prev.map(p =>
-        p.id === editingId
-          ? {
-              ...p,
-              client:     s1.client,
-              prestation: s1.prestation,
-              montantHT:  ht,
-              tva:        Math.round(ht * 0.2 * 100) / 100,
-              montantTTC: Math.round(ht * 1.2 * 100) / 100,
-              dateDebut:  s1.dateDebut,
-              statut:     s1.statut,
-              couts:      mappedCouts,
-            }
-          : p
-      ));
+      updateMutation.mutate({ id: editingId, body: payload });
     } else {
-      const newP: Prestation = {
-        id:         `manual-${Date.now()}`,
-        client:     s1.client,
-        prestation: s1.prestation,
-        montantHT:  ht,
-        tva:        Math.round(ht * 0.2 * 100) / 100,
-        montantTTC: Math.round(ht * 1.2 * 100) / 100,
-        dateDebut:  s1.dateDebut,
-        statut:     s1.statut,
-        source:     'manual',
-        couts:      mappedCouts,
-      };
-      setPrestations(prev => [newP, ...prev]);
+      createMutation.mutate(payload);
     }
     closeModal();
   };
@@ -253,6 +234,8 @@ export const Revenus: React.FC = () => {
     setCouts(p => p.map((c, idx) => idx === i ? { ...c, [f]: v } : c));
 
   /* ── render ── */
+  if (dataLoading) return <div className="h-full flex items-center justify-center text-[#FF4D00]">Chargement…</div>;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10">
 

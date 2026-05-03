@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Plus, X, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ABONNEMENTS_INITIALS } from '../constants/data';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AbonnementItem, AbonnementStatut, AbonnementFrequence } from '../types';
 import { useSubscriptionMonthlyLogs } from '../hooks/useSubscriptionMonthlyLogs';
+import { useApiClient } from '../hooks/useApiClient';
 
 import { formatDateFR } from '../utils/format';
 
@@ -35,7 +36,6 @@ const ALL_STATUTS: AbonnementStatut[] = ['Actif', 'Pausé', 'Annulé'];
 
 const EMPTY_FORM = {
   nom: '',
-  categorie: '',
   montantHT: '',
   frequence: 'Mensuel' as AbonnementFrequence,
   prochaineDate: '',
@@ -43,10 +43,24 @@ const EMPTY_FORM = {
 };
 
 export const Abonnements: React.FC = () => {
-  const [abonnements, setAbonnements] = useState<AbonnementItem[]>(() => {
-    const s = localStorage.getItem('irys_abonnements');
-    return s ? JSON.parse(s) : ABONNEMENTS_INITIALS;
+  const api = useApiClient();
+  const queryClient = useQueryClient();
+
+  const { data: abonnements = [], isLoading: dataLoading } = useQuery<AbonnementItem[]>({
+    queryKey: ['abonnements'],
+    queryFn: () => api.get<AbonnementItem[]>('/abonnements'),
   });
+
+  const createMutation = useMutation({
+    mutationFn: (body: unknown) => api.post('/abonnements', body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['abonnements'] }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: unknown }) => api.patch(`/abonnements/${id}`, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['abonnements'] }),
+  });
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [openStatusId, setOpenStatusId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -57,10 +71,6 @@ export const Abonnements: React.FC = () => {
 
   const currentMonth = getCurrentMonth();
   const isNextDisabled = selectedMonth >= currentMonth;
-
-  useEffect(() => {
-    localStorage.setItem('irys_abonnements', JSON.stringify(abonnements));
-  }, [abonnements]);
 
   // KPIs basés sur les logs du mois sélectionné
   const pris = abonnements.filter(a => logs[a.id] === true);
@@ -82,7 +92,7 @@ export const Abonnements: React.FC = () => {
   )[0];
 
   const changeStatut = (id: string, statut: AbonnementStatut) => {
-    setAbonnements(prev => prev.map(a => (a.id === id ? { ...a, statut } : a)));
+    updateMutation.mutate({ id, body: { actif: statut === 'Actif' } });
     setOpenStatusId(null);
   };
 
@@ -93,20 +103,18 @@ export const Abonnements: React.FC = () => {
       setFormError('Le montant HT doit être un nombre positif.');
       return;
     }
-    const newAb: AbonnementItem = {
-      id: `ab-${Date.now()}`,
+    createMutation.mutate({
       nom: form.nom,
-      categorie: form.categorie,
       montantHT: ht,
       frequence: form.frequence,
       prochaineDate: form.prochaineDate,
-      statut: form.statut,
-    };
-    setAbonnements(prev => [newAb, ...prev]);
+    });
     setIsAddOpen(false);
     setFormError(null);
     setForm(EMPTY_FORM);
   };
+
+  if (dataLoading) return <div className="h-full flex items-center justify-center text-[#FF4D00]">Chargement…</div>;
 
   const sorted = [...abonnements].sort((a, b) => b.montantHT - a.montantHT);
 
@@ -312,7 +320,6 @@ export const Abonnements: React.FC = () => {
                 <form onSubmit={handleAdd} className="p-6 space-y-4">
                   {[
                     { label: 'Nom',             field: 'nom',           type: 'text',   placeholder: 'ex : Figma' },
-                    { label: 'Catégorie',        field: 'categorie',     type: 'text',   placeholder: 'ex : Design / SaaS' },
                     { label: 'Montant HT (€)',   field: 'montantHT',     type: 'number', placeholder: '0.00' },
                     { label: 'Prochaine date',   field: 'prochaineDate', type: 'date',   placeholder: '' },
                   ].map(({ label, field, type, placeholder }) => (

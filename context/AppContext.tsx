@@ -1,9 +1,18 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  User, StatCardData, Transaction, ChartDataPoint,
-  AbonnementItem, PnlSummary, CashFlowDataPoint, ExpenseDistributionItem,
+  StatCardData, Transaction, ChartDataPoint,
+  AbonnementItem, PnlSummary, CashFlowDataPoint, ExpenseDistributionItem, User,
 } from '../types';
-import { mockDb } from '../services/mockDb';
+import { useApiClient } from '../hooks/useApiClient';
+
+interface DashboardResponse {
+  kpis: StatCardData[];
+  cashFlow: CashFlowDataPoint[];
+  recentTransactions: Transaction[];
+  subscriptions: AbonnementItem[];
+  expenseDistribution: ExpenseDistributionItem[];
+}
 
 interface AppState {
   user: User | null;
@@ -20,66 +29,43 @@ interface AppState {
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
+const EMPTY_DASHBOARD: DashboardResponse = {
+  kpis: [
+    { title: 'CA (Mois)', amount: 0, trend: 0 },
+    { title: 'Dépenses (Mois)', amount: 0, trend: 0 },
+    { title: 'Bénéfice Net', amount: 0, trend: 0 },
+    { title: 'CA en attente', amount: 0, trend: 0 },
+  ],
+  cashFlow: [],
+  recentTransactions: [],
+  subscriptions: [],
+  expenseDistribution: [],
+};
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const api = useApiClient();
+  const queryClient = useQueryClient();
 
-  const [kpis, setKpis] = useState<StatCardData[]>([]);
-  const [cashFlow, setCashFlow] = useState<CashFlowDataPoint[]>([]);
-  const [subscriptions, setSubscriptions] = useState<AbonnementItem[]>([]);
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
-  const [expenseDistribution, setExpenseDistribution] = useState<ExpenseDistributionItem[]>([]);
-  const [analyticsData, setAnalyticsData] = useState<ChartDataPoint[]>([]);
-  const [pnl, setPnl] = useState<PnlSummary | null>(null);
+  const { data: dashboard, isLoading } = useQuery<DashboardResponse>({
+    queryKey: ['dashboard'],
+    queryFn: () => api.get<DashboardResponse>('/dashboard'),
+    placeholderData: EMPTY_DASHBOARD,
+  });
 
-  const applyMockDashboard = async () => {
-    const dashboard = await mockDb.getDashboardData() as {
-      kpis: StatCardData[];
-      cashFlow: CashFlowDataPoint[];
-      subscriptions: AbonnementItem[];
-      recentTransactions: Transaction[];
-      expenseDistribution: ExpenseDistributionItem[];
-      pnl: PnlSummary;
-    };
-    setKpis(dashboard.kpis);
-    setCashFlow(dashboard.cashFlow);
-    setSubscriptions(dashboard.subscriptions);
-    setRecentTransactions(dashboard.recentTransactions);
-    setExpenseDistribution(dashboard.expenseDistribution);
-    setPnl(dashboard.pnl);
-  };
-
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const u = await mockDb.getUser();
-      setUser(u);
-      await applyMockDashboard();
-      const analytics = await mockDb.getAnalyticsData() as { chart: ChartDataPoint[] };
-      setAnalyticsData(analytics.chart);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const d = dashboard ?? EMPTY_DASHBOARD;
 
   return (
     <AppContext.Provider value={{
-      user,
+      user: null,
       isLoading,
-      kpis,
-      cashFlow,
-      subscriptions,
-      recentTransactions,
-      expenseDistribution,
-      analyticsData,
-      pnl,
-      refreshData: loadData,
+      kpis: d.kpis,
+      cashFlow: d.cashFlow,
+      subscriptions: d.subscriptions,
+      recentTransactions: d.recentTransactions,
+      expenseDistribution: d.expenseDistribution,
+      analyticsData: [],
+      pnl: null,
+      refreshData: () => queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
     }}>
       {children}
     </AppContext.Provider>
@@ -88,6 +74,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
 export const useApp = () => {
   const context = useContext(AppContext);
-  if (!context) throw new Error("useApp must be used within AppProvider");
+  if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
 };

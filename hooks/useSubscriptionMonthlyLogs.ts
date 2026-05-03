@@ -1,42 +1,31 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
+import { useApiClient } from './useApiClient';
 
-// subscriptionId -> taken (true = pris ce mois)
 export type LogsMap = Record<string, boolean>;
 
-const storageKey = (month: string) => `irys_sub_logs_${month}`;
-
-function readLogs(month: string): LogsMap {
-  try {
-    const raw = localStorage.getItem(storageKey(month));
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
-}
-
-function writeLogs(month: string, logs: LogsMap) {
-  try {
-    localStorage.setItem(storageKey(month), JSON.stringify(logs));
-  } catch { /* ignore */ }
-}
-
 export function useSubscriptionMonthlyLogs(month: string) {
-  const [logs, setLogs] = useState<LogsMap>(() => readLogs(month));
-  const [isLoading] = useState(false);
-  const [errorMsg] = useState<string | null>(null);
+  const api = useApiClient();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    setLogs(readLogs(month));
-  }, [month]);
+  const { data: logs = {}, isLoading, error } = useQuery<LogsMap>({
+    queryKey: ['abonnement-logs', month],
+    queryFn: () => api.get<LogsMap>(`/abonnements/logs/${month}`),
+  });
 
-  const toggleLog = useCallback(
-    (_subscriptionId: string, taken: boolean) => {
-      setLogs(prev => {
-        const next = { ...prev, [_subscriptionId]: taken };
-        writeLogs(month, next);
-        return next;
-      });
-    },
-    [month]
-  );
+  const toggleMutation = useMutation({
+    mutationFn: ({ subscriptionId, pris }: { subscriptionId: string; pris: boolean }) =>
+      api.put(`/abonnements/logs/${month}/${subscriptionId}`, { pris }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['abonnement-logs', month] }),
+  });
 
-  return { logs, isLoading, errorMsg, toggleLog };
+  const toggleLog = (subscriptionId: string, taken: boolean) => {
+    toggleMutation.mutate({ subscriptionId, pris: taken });
+  };
+
+  return {
+    logs,
+    isLoading,
+    errorMsg: error ? (error as Error).message : null,
+    toggleLog,
+  };
 }

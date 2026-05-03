@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SignedIn, SignedOut, SignIn } from '@clerk/clerk-react';
 import { AppProvider } from './context/AppContext';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
@@ -38,8 +39,17 @@ const AppContent = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <>
+      <SignedOut>
+        <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+          <SignIn routing="hash" />
+        </div>
+      </SignedOut>
+      <SignedIn>
+        <AppProvider>
+          <AppContent />
+        </AppProvider>
+      </SignedIn>
+    </>
   );
 }
