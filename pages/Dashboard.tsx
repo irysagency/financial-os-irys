@@ -13,43 +13,14 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
-  const { kpis, recentTransactions, expenseDistribution, cashFlow, subscriptions, isLoading, refreshData } = useApp();
+  const { kpis, recentTransactions, expenseDistribution, cashFlow, subscriptions, isLoading } = useApp();
 
   const [showCA,       setShowCA]       = useState(true);
   const [showCharges,  setShowCharges]  = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
-
-  const handleSync = async () => {
-    setIsSyncing(true);
-    setSyncMessage(null);
-    try {
-      const apiToken = (import.meta as any).env?.VITE_API_TOKEN as string | undefined;
-      const response = await fetch('/api/sync-qonto', {
-        headers: apiToken ? { 'x-api-token': apiToken } : {},
-      });
-      let data: any;
-      try {
-        data = await response.json();
-      } catch (parseError) {
-        setSyncMessage({ text: 'Sync disponible uniquement en production', type: 'error' });
-        return;
-      }
-
-      if (response.ok) {
-        setSyncMessage({ text: `Synchronisation réussie (${data.count} transactions)`, type: 'success' });
-        // Refresh the global state with new data from Supabase
-        refreshData();
-      } else {
-        setSyncMessage({ text: `Erreur: ${data.error}`, type: 'error' });
-      }
-    } catch (error) {
-      setSyncMessage({ text: 'Sync disponible uniquement en production', type: 'error' });
-    } finally {
-      setIsSyncing(false);
-      setTimeout(() => setSyncMessage(null), 5000);
-    }
-  };
+  const [syncMessage] = useState<{ text: string, type: 'success' | 'error' } | null>({
+    text: 'Synchronisation Qonto — disponible dans la prochaine version',
+    type: 'error',
+  });
 
   const monthlyCost = subscriptions
     .filter(a => a.frequence === 'Mensuel')
@@ -74,16 +45,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             Irys Agency · Qonto
           </div>
           <button
-            onClick={handleSync}
-            disabled={isSyncing}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              isSyncing 
-                ? 'bg-[#1A1A1A] text-muted cursor-not-allowed' 
-                : 'bg-[#FF4D00] text-white hover:bg-[#FF4D00]/80 active:scale-95'
-            }`}
+            disabled
+            className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium bg-[#1A1A1A] text-muted cursor-not-allowed opacity-50"
           >
-            <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
-            {isSyncing ? 'Synchronisation...' : 'Synchroniser mes finances'}
+            <RefreshCw size={14} />
+            Synchroniser mes finances
           </button>
           {syncMessage && (
             <div className={`text-xs px-3 py-1.5 rounded-lg animate-in slide-in-from-left-2 duration-300 ${

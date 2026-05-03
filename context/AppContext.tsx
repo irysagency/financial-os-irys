@@ -54,55 +54,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       const u = await mockDb.getUser();
       setUser(u);
-
-      let usedApi = false;
-      try {
-        const apiToken = (import.meta as any).env?.VITE_API_TOKEN as string | undefined;
-        const response = await fetch('/api/get-dashboard-data', {
-          headers: apiToken ? { 'x-api-token': apiToken } : {},
-        });
-        if (response.ok) {
-          try {
-            const dashboard = await response.json();
-            if (dashboard && Array.isArray(dashboard.kpis)) {
-              setKpis(dashboard.kpis || []);
-              setCashFlow(dashboard.chartData || []);
-              const apiSubs: AbonnementItem[] = dashboard.subscriptions || [];
-              setSubscriptions(apiSubs);
-              setRecentTransactions(dashboard.recentTransactions || []);
-              setExpenseDistribution(dashboard.expenseDistribution || []);
-              setPnl(dashboard.pnl || null);
-              usedApi = true;
-              try {
-                const stored: AbonnementItem[] = JSON.parse(localStorage.getItem('irys_abonnements') || '[]');
-                const merged = [...stored];
-                for (const apiSub of apiSubs) {
-                  const apiKey = apiSub.nom.toLowerCase().replace(/[^a-z]/g, '');
-                  const idx = merged.findIndex(s => {
-                    const sKey = s.nom.toLowerCase().replace(/[^a-z]/g, '');
-                    return sKey.includes(apiKey) || apiKey.includes(sKey);
-                  });
-                  if (idx === -1) {
-                    merged.push(apiSub);
-                  } else {
-                    merged[idx].prochaineDate = apiSub.prochaineDate;
-                  }
-                }
-                localStorage.setItem('irys_abonnements', JSON.stringify(merged));
-              } catch { /* ignore localStorage errors */ }
-            }
-          } catch (jsonErr) {
-            console.warn('Dashboard API returned non-JSON, falling back to mockDb.', jsonErr);
-          }
-        }
-      } catch (fetchErr) {
-        console.warn('Dashboard API fetch failed, falling back to mockDb.', fetchErr);
-      }
-
-      if (!usedApi) {
-        await applyMockDashboard();
-      }
-
+      await applyMockDashboard();
       const analytics = await mockDb.getAnalyticsData() as { chart: ChartDataPoint[] };
       setAnalyticsData(analytics.chart);
     } catch (error) {
